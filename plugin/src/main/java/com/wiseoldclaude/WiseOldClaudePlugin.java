@@ -43,6 +43,7 @@ public class WiseOldClaudePlugin extends Plugin implements SidecarListener
     private ExecutorService worker;
     private ProactiveDispatcher dispatcher;
     private EventWatcher eventWatcher;
+    private SidecarProcess sidecarProcess;
 
     @Provides
     WiseOldClaudeConfig provideConfig(ConfigManager configManager)
@@ -61,6 +62,15 @@ public class WiseOldClaudePlugin extends Plugin implements SidecarListener
         BufferedImage icon = new BufferedImage(16, 16, BufferedImage.TYPE_INT_ARGB);
         navButton = NavigationButton.builder().tooltip("Wise Old Claude").icon(icon).panel(panel).build();
         clientToolbar.addNavigation(navButton);
+
+        if (config.manageSidecar())
+        {
+            sidecarProcess = new SidecarProcess(
+                config.nodePath(), config.sidecarDir(), config.sidecarHost(), config.sidecarPort(),
+                config.token(), config.sidecarEnvFile(),
+                SidecarProcess.tcpProbe(), SidecarProcess.processBuilderLauncher());
+            sidecarProcess.start();
+        }
 
         scheduler = Executors.newSingleThreadScheduledExecutor();
         reconnect = new ReconnectingConnection(
@@ -87,6 +97,7 @@ public class WiseOldClaudePlugin extends Plugin implements SidecarListener
         if (scheduler != null) scheduler.shutdownNow();
         if (client != null) client.close();
         if (navButton != null) clientToolbar.removeNavigation(navButton);
+        if (sidecarProcess != null) sidecarProcess.stop();
     }
 
     // SidecarListener — chat events forward to the panel.

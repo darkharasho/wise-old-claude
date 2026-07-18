@@ -51,6 +51,28 @@ Build and run the plugin in your RuneLite dev environment. In the plugin config 
 
 The panel header should show **Connected**. Log in to OSRS and ask a question such as "What's in my inventory?" — Claude will call the appropriate tool and reply with real item names.
 
+### Auto-spawn the sidecar (optional)
+
+By default you start the sidecar yourself (see above). To have the plugin launch
+it for you, first build the sidecar once (`cd sidecar && npm install && npm run
+build`), then in the plugin config:
+
+- Enable **Manage sidecar**.
+- Set **Sidecar directory** to the path of the `sidecar/` folder (it must contain
+  `dist/main.js`).
+- Set **Node path** if `node` is not on RuneLite's PATH.
+
+The plugin spawns `node dist/main.js`, passing the handshake token and port, and
+pipes the sidecar's output into RuneLite's log. It **does not** pass your Claude
+credential — the spawned sidecar inherits `CLAUDE_CODE_OAUTH_TOKEN` from your
+environment. If RuneLite is launched such that it doesn't inherit that variable,
+point **Sidecar env file** at a `KEY=VALUE` file containing
+`CLAUDE_CODE_OAUTH_TOKEN=...` (entries there override the inherited environment).
+
+If a sidecar is already running on the configured port, the plugin attaches to it
+instead of spawning a second one. The plugin kills a sidecar it spawned when the
+plugin is disabled.
+
 ## Manual end-to-end test
 
 1. Start the sidecar with a valid `CLAUDE_CODE_OAUTH_TOKEN` and a known `WOC_TOKEN`.
