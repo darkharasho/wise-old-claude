@@ -76,5 +76,6 @@ public class SidecarClient
     private void rawSend(String frame)
     {
         if (ws != null && ws.isOpen()) ws.send(frame);
+        else log.warn("dropping frame; sidecar socket not open (connect() not called or disconnected)");
     }
 }
