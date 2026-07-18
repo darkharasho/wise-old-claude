@@ -22,8 +22,9 @@ export class SidecarServer {
   constructor(private opts: SidecarServerOpts) {}
 
   start(): Promise<void> {
-    return new Promise((resolve) => {
+    return new Promise((resolve, reject) => {
       this.wss = new WebSocketServer({ host: "127.0.0.1", port: this.opts.port });
+      this.wss.on("error", reject);
       this.wss.on("listening", () => {
         this.port = (this.wss!.address() as { port: number }).port;
         resolve();

@@ -68,12 +68,15 @@ public class WiseOldClaudePlugin extends Plugin implements SidecarListener
         if (navButton != null) clientToolbar.removeNavigation(navButton);
     }
 
-    // SidecarListener — chat events forward to the panel; tool requests handled in Task 11.
+    // SidecarListener — chat events forward to the panel.
     @Override public void onDelta(String id, String text) { panel.onDelta(id, text); }
     @Override public void onDone(String id) { panel.onDone(id); }
     @Override public void onError(String id, String message) { panel.onError(id, message); }
     @Override public void onConnected() { reconnect.onConnected(); panel.onConnected(); }
     @Override public void onDisconnected() { reconnect.onDisconnected(); panel.onDisconnected(); }
+
+    // Routes tool requests through ToolRouter. NB: this runs on the WebSocket read thread and
+    // blocks up to ~5s on the game-thread read, so tool calls are handled serially in v1.
     @Override public void onToolRequest(String requestId, String tool, JsonObject args)
     {
         try

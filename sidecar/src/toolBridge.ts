@@ -18,7 +18,10 @@ export class ToolBridge {
   request(
     tool: string,
     args: Record<string, unknown>,
-    timeoutMs = 5000,
+    // Must stay strictly greater than the plugin's 5s game-thread timeout so the
+    // plugin's structured {error:"game thread timed out"} response wins the race
+    // and the bridge never fires before the plugin can reply.
+    timeoutMs = 8000,
   ): Promise<Record<string, unknown>> {
     const requestId = this.idGen();
     return new Promise((resolve, reject) => {
