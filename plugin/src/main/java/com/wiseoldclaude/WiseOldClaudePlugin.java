@@ -6,11 +6,15 @@ import java.awt.image.BufferedImage;
 import java.util.UUID;
 import javax.inject.Inject;
 import lombok.extern.slf4j.Slf4j;
+import net.runelite.api.Client;
+import net.runelite.client.callback.ClientThread;
 import net.runelite.client.config.ConfigManager;
 import net.runelite.client.plugins.Plugin;
 import net.runelite.client.plugins.PluginDescriptor;
 import net.runelite.client.ui.ClientToolbar;
 import net.runelite.client.ui.NavigationButton;
+import com.wiseoldclaude.game.GameStateProvider;
+import com.wiseoldclaude.game.ToolRouter;
 import com.wiseoldclaude.protocol.ProtocolCodec;
 
 @Slf4j
@@ -19,10 +23,13 @@ public class WiseOldClaudePlugin extends Plugin implements SidecarListener
 {
     @Inject private WiseOldClaudeConfig config;
     @Inject private ClientToolbar clientToolbar;
+    @Inject private Client runeliteClient;
+    @Inject private ClientThread clientThread;
 
     private WiseOldClaudePanel panel;
     private SidecarClient client;
     private NavigationButton navButton;
+    private ToolRouter toolRouter;
 
     @Provides
     WiseOldClaudeConfig provideConfig(ConfigManager configManager)
@@ -33,6 +40,7 @@ public class WiseOldClaudePlugin extends Plugin implements SidecarListener
     @Override
     protected void startUp()
     {
+        toolRouter = new ToolRouter(new GameStateProvider(runeliteClient, clientThread::invoke));
         panel = new WiseOldClaudePanel();
         client = new SidecarClient(new ProtocolCodec(), this);
         panel.setSubmitHandler(text -> client.sendChat(UUID.randomUUID().toString(), text));
@@ -59,7 +67,14 @@ public class WiseOldClaudePlugin extends Plugin implements SidecarListener
     @Override public void onDisconnected() { panel.onDisconnected(); }
     @Override public void onToolRequest(String requestId, String tool, JsonObject args)
     {
-        // Filled in Task 11.
-        client.sendToolError(requestId, "no tools wired yet");
+        try
+        {
+            JsonObject data = toolRouter.handle(tool, args);
+            client.sendToolResponse(requestId, data);
+        }
+        catch (RuntimeException e)
+        {
+            client.sendToolError(requestId, e.getMessage());
+        }
     }
 }
