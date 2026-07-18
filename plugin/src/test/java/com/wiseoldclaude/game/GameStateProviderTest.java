@@ -42,6 +42,24 @@ class GameStateProviderTest
     }
 
     @Test
+    void nearbyReportsNpcNames()
+    {
+        Client client = mock(Client.class);
+        when(client.getGameState()).thenReturn(GameState.LOGGED_IN);
+        when(client.getLocalPlayer()).thenReturn(mock(net.runelite.api.Player.class));
+
+        net.runelite.api.NPC goblin = mock(net.runelite.api.NPC.class);
+        when(goblin.getName()).thenReturn("Goblin");
+        when(goblin.getCombatLevel()).thenReturn(2);
+        when(client.getNpcs()).thenReturn(java.util.List.of(goblin));
+        when(client.getPlayers()).thenReturn(java.util.List.of());
+
+        GameStateProvider p = new GameStateProvider(client, inline);
+        JsonObject out = p.nearbyEntities();
+        assertEquals("Goblin", out.getAsJsonArray("npcs").get(0).getAsJsonObject().get("name").getAsString());
+    }
+
+    @Test
     void inventoryReportsItemsAndNullBankWhenClosed()
     {
         Client client = mock(Client.class);

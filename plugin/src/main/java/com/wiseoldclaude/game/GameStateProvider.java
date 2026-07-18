@@ -10,6 +10,8 @@ import net.runelite.api.GameState;
 import net.runelite.api.InventoryID;
 import net.runelite.api.Item;
 import net.runelite.api.ItemContainer;
+import net.runelite.api.NPC;
+import net.runelite.api.Player;
 import net.runelite.api.Skill;
 
 public class GameStateProvider
@@ -80,6 +82,39 @@ public class GameStateProvider
             ItemContainer bank = client.getItemContainer(InventoryID.BANK);
             if (bank == null) o.add("bank", com.google.gson.JsonNull.INSTANCE);
             else o.add("bank", items(bank));
+            return o;
+        });
+    }
+
+    public JsonObject nearbyEntities()
+    {
+        return onGameThread(() -> {
+            JsonObject o = new JsonObject();
+            if (client.getGameState() != GameState.LOGGED_IN || client.getLocalPlayer() == null)
+            {
+                o.addProperty("error", "not logged in");
+                return o;
+            }
+            JsonArray npcs = new JsonArray();
+            for (NPC npc : client.getNpcs())
+            {
+                if (npc == null || npc.getName() == null) continue;
+                JsonObject j = new JsonObject();
+                j.addProperty("name", npc.getName());
+                j.addProperty("combatLevel", npc.getCombatLevel());
+                npcs.add(j);
+            }
+            o.add("npcs", npcs);
+
+            JsonArray players = new JsonArray();
+            for (Player pl : client.getPlayers())
+            {
+                if (pl == null || pl.getName() == null || pl == client.getLocalPlayer()) continue;
+                JsonObject j = new JsonObject();
+                j.addProperty("name", pl.getName());
+                players.add(j);
+            }
+            o.add("players", players);
             return o;
         });
     }
