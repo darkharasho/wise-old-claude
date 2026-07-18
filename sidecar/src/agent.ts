@@ -8,6 +8,13 @@ export const SYSTEM_PROMPT = [
   "Keep answers short and skimmable — this is a narrow panel, not an essay.",
 ].join(" ");
 
+export const PROACTIVE_SYSTEM_PROMPT = [
+  "You are Wise Old Claude, an Old School RuneScape companion. Something just",
+  "happened to the player. React with ONE short, in-character remark (a sentence",
+  "or two). You may call your tools to make it specific to their situation, but",
+  "keep it brief — this is an unprompted aside, not a lecture.",
+].join(" ");
+
 // The SDK prefixes MCP tool names as mcp__<serverName>__<tool>. Our server is
 // "gielinor" (see main.ts). Listing them in allowedTools auto-approves the
 // read-only tools so the headless sidecar never blocks on a permission prompt.
@@ -24,13 +31,15 @@ type Deps = {
   model: string;
 };
 
-export async function runChat(deps: Deps, id: string, text: string, ctx: SessionCtx): Promise<void> {
+async function streamAgent(
+  deps: Deps, prompt: string, systemPrompt: string, id: string, ctx: SessionCtx,
+): Promise<void> {
   try {
     const stream = deps.queryFn({
-      prompt: text,
+      prompt,
       options: {
         mcpServers: { gielinor: deps.mcpServer },
-        systemPrompt: SYSTEM_PROMPT,
+        systemPrompt,
         model: deps.model,
         includePartialMessages: false,
         tools: [],
@@ -48,4 +57,27 @@ export async function runChat(deps: Deps, id: string, text: string, ctx: Session
   } catch (e) {
     ctx.sendError(id, e instanceof Error ? e.message : String(e));
   }
+}
+
+export function runChat(deps: Deps, id: string, text: string, ctx: SessionCtx): Promise<void> {
+  return streamAgent(deps, text, SYSTEM_PROMPT, id, ctx);
+}
+
+export function proactivePrompt(kind: string, detail: Record<string, unknown>): string {
+  switch (kind) {
+    case "level_up":
+      return `The player just reached level ${detail.level} ${detail.skill}. React briefly, in character.`;
+    case "death":
+      return `The player just died. React briefly, in character — wry or encouraging.`;
+    case "drop":
+      return `The player just received a valuable drop worth ${detail.totalValue} gp: ${JSON.stringify(detail.items)}. React briefly, in character; you may check their inventory.`;
+    default:
+      return `Something happened in-game (${kind}). React briefly, in character.`;
+  }
+}
+
+export function runProactive(
+  deps: Deps, id: string, kind: string, detail: Record<string, unknown>, ctx: SessionCtx,
+): Promise<void> {
+  return streamAgent(deps, proactivePrompt(kind, detail), PROACTIVE_SYSTEM_PROMPT, id, ctx);
 }

@@ -13,6 +13,7 @@ export type SidecarServerOpts = {
   port: number;
   token: string;
   onChat: (id: string, text: string, ctx: SessionCtx) => void;
+  onEvent?: (id: string, kind: string, detail: Record<string, unknown>, ctx: SessionCtx) => void;
 };
 
 export class SidecarServer {
@@ -60,6 +61,7 @@ export class SidecarServer {
       if (!authed) return;
       if (msg.type === "chat") this.opts.onChat(msg.id, msg.text, ctx);
       else if (msg.type === "tool_response") bridge.resolve(msg.requestId, msg.data, msg.error);
+      else if (msg.type === "event") this.opts.onEvent?.(msg.id, msg.kind, msg.detail, ctx);
     });
   }
 
