@@ -1,4 +1,3 @@
-import { z } from "zod";
 import { tool } from "@anthropic-ai/claude-agent-sdk";
 import type { ToolBridge } from "./toolBridge.js";
 
@@ -18,14 +17,16 @@ export async function runTool(
   }
 }
 
+// The Agent SDK's tool() takes a zod raw shape (a plain object of field->schema),
+// not a ZodObject. Our v1 tools take no arguments, so the shape is empty ({}).
+// Passing {} inline avoids any zod version dependency here entirely.
 export function buildTools(bridge: ToolBridge) {
-  const empty = z.object({});
   return [
     tool("get_player_state", "Combat level, skills, HP/prayer/run energy, location.",
-      empty, async () => runTool(bridge, "get_player_state", {})),
+      {}, async () => runTool(bridge, "get_player_state", {})),
     tool("get_inventory", "Inventory items, worn equipment, and bank contents if the bank is open.",
-      empty, async () => runTool(bridge, "get_inventory", {})),
+      {}, async () => runTool(bridge, "get_inventory", {})),
     tool("get_nearby_entities", "Nearby NPCs, players, ground items, and objects.",
-      empty, async () => runTool(bridge, "get_nearby_entities", {})),
+      {}, async () => runTool(bridge, "get_nearby_entities", {})),
   ];
 }
