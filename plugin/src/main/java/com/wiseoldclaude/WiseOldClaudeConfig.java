@@ -18,4 +18,12 @@ public interface WiseOldClaudeConfig extends Config
     @ConfigItem(keyName = "token", name = "Handshake token", position = 3, secret = true,
         description = "Shared secret matching the sidecar's WOC_TOKEN")
     default String token() { return ""; }
+
+    @ConfigItem(keyName = "proactiveEnabled", name = "Proactive comments", position = 4,
+        description = "Let Claude comment unprompted on notable events")
+    default boolean proactiveEnabled() { return true; }
+
+    @ConfigItem(keyName = "dropValueThreshold", name = "Drop value threshold", position = 6,
+        description = "Minimum total GE value of a drop to comment on")
+    default int dropValueThreshold() { return 100000; }
 }
