@@ -1,6 +1,7 @@
 import { describe, it, expect, afterEach } from "vitest";
 import WebSocket from "ws";
 import { SidecarServer } from "./server.js";
+import { parseMessage } from "./protocol.js";
 
 // A real ws client that acts as the plugin: queues incoming parsed frames and
 // lets a test await the next one (so a rapid second frame is never dropped).
@@ -155,5 +156,35 @@ describe("e2e", () => {
     expect(err.id).toBe("c1");
     expect(err.message).toContain("not logged in");
     client.close();
+  });
+});
+
+// The plugin's Java ProtocolCodec emits these exact frames (the literal strings
+// pinned in the Java ProtocolCodecTest / SidecarClientTest). This guards against
+// the TS and Java protocols silently drifting apart.
+describe("cross-language protocol contract", () => {
+  it("parses the exact frames the Java ProtocolCodec emits", () => {
+    expect(parseMessage('{"type":"hello","token":"t"}')).toEqual({ type: "hello", token: "t" });
+
+    expect(parseMessage('{"type":"chat","id":"1","text":"hi"}')).toEqual({ type: "chat", id: "1", text: "hi" });
+
+    expect(parseMessage('{"type":"tool_response","requestId":"r1","data":{"hp":99}}')).toEqual({
+      type: "tool_response",
+      requestId: "r1",
+      data: { hp: 99 },
+    });
+
+    expect(parseMessage('{"type":"tool_response","requestId":"r1","error":"not logged in"}')).toEqual({
+      type: "tool_response",
+      requestId: "r1",
+      error: "not logged in",
+    });
+
+    expect(parseMessage('{"type":"event","id":"e1","kind":"level_up","detail":{"skill":"Attack","level":70}}')).toEqual({
+      type: "event",
+      id: "e1",
+      kind: "level_up",
+      detail: { skill: "Attack", level: 70 },
+    });
   });
 });
