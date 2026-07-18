@@ -51,6 +51,7 @@ export class SidecarServer {
         return; // ignore malformed frames
       }
       if (msg.type === "hello") {
+        if (authed) return;
         authed = msg.token === this.opts.token;
         send(authed ? { type: "hello_ok" } : { type: "hello_reject", reason: "bad token" });
         return;
