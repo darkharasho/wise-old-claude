@@ -13,6 +13,7 @@ import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.TimeUnit;
 import lombok.extern.slf4j.Slf4j;
 
 /**
@@ -71,6 +72,7 @@ public class SidecarProcess
     private final PortProbe probe;
     private final ProcessLauncher launcher;
     private Process process;
+    private Thread logThread;
 
     public SidecarProcess(String nodePath, String sidecarDir, String host, int port, String token,
                           String envFilePath, PortProbe probe, ProcessLauncher launcher)
@@ -112,6 +114,18 @@ public class SidecarProcess
         if (process == null) return;
         process.descendants().forEach(ProcessHandle::destroy);
         process.destroyForcibly();
+        try
+        {
+            // Best-effort: wait for the port to actually free before returning, so a
+            // rapid disable->re-enable doesn't see a dying socket (double-spawn/attach race).
+            process.waitFor(2, TimeUnit.SECONDS);
+        }
+        catch (InterruptedException e)
+        {
+            Thread.currentThread().interrupt();
+        }
+        if (logThread != null) logThread.interrupt();
+        logThread = null;
         process = null;
     }
 
@@ -142,6 +156,7 @@ public class SidecarProcess
             catch (Exception ignored) { }
         }, "woc-sidecar-log");
         t.setDaemon(true);
+        logThread = t;
         t.start();
     }
 
@@ -151,7 +166,7 @@ public class SidecarProcess
         return (host, port) -> {
             try (Socket s = new Socket())
             {
-                s.connect(new InetSocketAddress(host, port), 300);
+                s.connect(new InetSocketAddress(host, port), 1000);
                 return true;
             }
             catch (Exception e)

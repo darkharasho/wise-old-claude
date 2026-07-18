@@ -19,8 +19,10 @@ escape hatch when GUI-launched RuneLite doesn't inherit the needed env var.
 - A config toggle that, when on, spawns the sidecar on plugin startup and stops
   it on shutdown.
 - **No OAuth token in the plugin.** The plugin passes the child only the
-  non-secret run vars it already holds (`WOC_TOKEN` handshake secret, `WOC_PORT`,
-  `WOC_MODEL`); the child inherits RuneLite's environment for the credential.
+  non-secret run vars it already holds (`WOC_TOKEN` handshake secret, `WOC_PORT`).
+  It does **not** pass `WOC_MODEL` (the plugin has no model config; the sidecar's
+  own default or an env-file entry provides it). The child inherits RuneLite's
+  environment for the credential.
 - An optional env-file path the plugin merges into the child's environment (the
   escape hatch for the credential when the inherited env lacks it).
 - **Don't spawn a duplicate:** if a sidecar is already reachable on the configured
@@ -53,7 +55,7 @@ SidecarProcess.start()
    └─ not reachable ─▶ ProcessBuilder(nodePath, "dist/main.js")
                           cwd = sidecarDir
                           env = RuneLite env
-                              + WOC_TOKEN / WOC_PORT / WOC_MODEL (from config)
+                              + WOC_TOKEN / WOC_PORT (from config)
                               + sidecarEnvFile entries (if set)
                           stdout+stderr → RuneLite log
    │
@@ -80,8 +82,8 @@ user points at one.
   1. If the port probe reports the sidecar is already reachable, log "attaching to
      existing sidecar" and return without spawning.
   2. Otherwise assemble the command (`nodePath dist/main.js`), working dir
-     (`sidecarDir`), and environment (inherited + `WOC_TOKEN`/`WOC_PORT`/
-     `WOC_MODEL` + parsed `sidecarEnvFile` lines), launch via the injected
+     (`sidecarDir`), and environment (inherited + `WOC_TOKEN`/`WOC_PORT`
+     + parsed `sidecarEnvFile` lines), launch via the injected
      launcher, and retain the `Process` handle. Pipe the merged output stream to
      the RuneLite log on a daemon reader thread.
   3. On launch failure (e.g. node not found, bad dir), log a clear error and
