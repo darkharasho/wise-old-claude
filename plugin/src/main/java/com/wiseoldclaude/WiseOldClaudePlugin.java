@@ -4,6 +4,8 @@ import com.google.gson.JsonObject;
 import com.google.inject.Provides;
 import java.awt.image.BufferedImage;
 import java.util.UUID;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
 import javax.inject.Inject;
 import lombok.extern.slf4j.Slf4j;
 import net.runelite.api.Client;
@@ -30,6 +32,8 @@ public class WiseOldClaudePlugin extends Plugin implements SidecarListener
     private SidecarClient client;
     private NavigationButton navButton;
     private ToolRouter toolRouter;
+    private ScheduledExecutorService scheduler;
+    private ReconnectingConnection reconnect;
 
     @Provides
     WiseOldClaudeConfig provideConfig(ConfigManager configManager)
@@ -49,12 +53,17 @@ public class WiseOldClaudePlugin extends Plugin implements SidecarListener
         navButton = NavigationButton.builder().tooltip("Wise Old Claude").icon(icon).panel(panel).build();
         clientToolbar.addNavigation(navButton);
 
-        client.connect(config.sidecarHost(), config.sidecarPort(), config.token());
+        scheduler = Executors.newSingleThreadScheduledExecutor();
+        reconnect = new ReconnectingConnection(
+            () -> client.connect(config.sidecarHost(), config.sidecarPort(), config.token()),
+            scheduler, 1000, 8000);
+        reconnect.start();
     }
 
     @Override
     protected void shutDown()
     {
+        if (scheduler != null) scheduler.shutdownNow();
         if (client != null) client.close();
         if (navButton != null) clientToolbar.removeNavigation(navButton);
     }
@@ -63,8 +72,8 @@ public class WiseOldClaudePlugin extends Plugin implements SidecarListener
     @Override public void onDelta(String id, String text) { panel.onDelta(id, text); }
     @Override public void onDone(String id) { panel.onDone(id); }
     @Override public void onError(String id, String message) { panel.onError(id, message); }
-    @Override public void onConnected() { panel.onConnected(); }
-    @Override public void onDisconnected() { panel.onDisconnected(); }
+    @Override public void onConnected() { reconnect.onConnected(); panel.onConnected(); }
+    @Override public void onDisconnected() { reconnect.onDisconnected(); panel.onDisconnected(); }
     @Override public void onToolRequest(String requestId, String tool, JsonObject args)
     {
         try
