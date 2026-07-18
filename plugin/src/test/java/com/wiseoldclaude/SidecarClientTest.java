@@ -49,6 +49,16 @@ class SidecarClientTest
         assertEquals("{\"type\":\"chat\",\"id\":\"1\",\"text\":\"hello\"}", sent.get(0));
     }
 
+    @Test
+    void sendEventEmitsEventFrame()
+    {
+        SidecarClient c = client(new NoopListener());
+        JsonObject detail = new JsonObject();
+        detail.addProperty("level", 99);
+        c.sendEvent("e2", "level_up", detail);
+        assertEquals("{\"type\":\"event\",\"id\":\"e2\",\"kind\":\"level_up\",\"detail\":{\"level\":99}}", sent.get(0));
+    }
+
     static class NoopListener implements SidecarListener {
         @Override public void onDelta(String id, String text) {}
         @Override public void onDone(String id) {}

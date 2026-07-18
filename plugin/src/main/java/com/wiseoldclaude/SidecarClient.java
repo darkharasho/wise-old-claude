@@ -70,6 +70,7 @@ public class SidecarClient
     }
 
     public void sendChat(String id, String text) { sink.accept(codec.chat(id, text)); }
+    public void sendEvent(String id, String kind, JsonObject detail) { sink.accept(codec.event(id, kind, detail)); }
     public void sendToolResponse(String requestId, JsonObject data) { sink.accept(codec.toolResponse(requestId, data)); }
     public void sendToolError(String requestId, String error) { sink.accept(codec.toolError(requestId, error)); }
 

@@ -43,6 +43,16 @@ public class ProtocolCodec
         return gson.toJson(o);
     }
 
+    public String event(String id, String kind, JsonObject detail)
+    {
+        JsonObject o = new JsonObject();
+        o.addProperty("type", Messages.EVENT);
+        o.addProperty("id", id);
+        o.addProperty("kind", kind);
+        o.add("detail", detail);
+        return gson.toJson(o);
+    }
+
     public Inbound parse(String raw)
     {
         return new Inbound(gson.fromJson(raw, JsonObject.class));

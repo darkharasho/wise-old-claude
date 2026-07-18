@@ -12,6 +12,7 @@ public final class Messages
     public static final String ASSISTANT_DONE = "assistant_done";
     public static final String TOOL_REQUEST = "tool_request";
     public static final String ERROR = "error";
+    public static final String EVENT = "event";
 
     private Messages() {}
 }

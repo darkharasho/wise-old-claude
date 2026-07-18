@@ -49,4 +49,14 @@ class ProtocolCodecTest
         assertEquals("{\"type\":\"tool_response\",\"requestId\":\"r1\",\"error\":\"not logged in\"}",
             codec.toolError("r1", "not logged in"));
     }
+
+    @Test
+    void buildsEvent()
+    {
+        JsonObject detail = new JsonObject();
+        detail.addProperty("skill", "Attack");
+        detail.addProperty("level", 70);
+        assertEquals("{\"type\":\"event\",\"id\":\"e1\",\"kind\":\"level_up\",\"detail\":{\"skill\":\"Attack\",\"level\":70}}",
+            codec.event("e1", "level_up", detail));
+    }
 }
