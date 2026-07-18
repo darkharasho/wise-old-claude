@@ -96,7 +96,9 @@ public class EventWatcher
             long value = (long) itemManager.getItemPrice(s.getId()) * s.getQuantity();
             total += value;
             JsonObject j = new JsonObject();
-            j.addProperty("name", itemManager.getItemComposition(s.getId()).getName());
+            net.runelite.api.ItemComposition comp = itemManager.getItemComposition(s.getId());
+            String name = comp != null ? comp.getName() : "Unknown";
+            j.addProperty("name", name);
             j.addProperty("quantity", s.getQuantity());
             j.addProperty("value", value);
             items.add(j);

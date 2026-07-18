@@ -28,6 +28,6 @@ public interface WiseOldClaudeConfig extends Config
     default int proactiveCooldownSeconds() { return 60; }
 
     @ConfigItem(keyName = "dropValueThreshold", name = "Drop value threshold", position = 6,
-        description = "Minimum total GE value of a drop to comment on")
+        description = "Minimum total GE value of a drop to comment on (requires the Loot Tracker plugin)")
     default int dropValueThreshold() { return 100000; }
 }

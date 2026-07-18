@@ -70,6 +70,8 @@ public class WiseOldClaudePlugin extends Plugin implements SidecarListener
 
         worker = Executors.newSingleThreadExecutor();
         dispatcher = new ProactiveDispatcher(worker, client);
+        // Cooldown is read once here at startUp; a config change takes effect on plugin re-enable
+        // (proactiveEnabled itself is checked live per-event via config.proactiveEnabled()).
         ProactiveThrottle throttle = new ProactiveThrottle(
             config.proactiveCooldownSeconds() * 1000L, System::currentTimeMillis);
         eventWatcher = new EventWatcher(runeliteClient, itemManager, config, throttle,

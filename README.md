@@ -67,3 +67,4 @@ There is no automated end-to-end test — the e2e path requires a live OAuth tok
 - **Tool calls are serial in v1.** `onToolRequest` runs on the WebSocket read thread and blocks up to ~5 s on the game-thread read.
 - **Privacy.** Game state read by the tools (inventory, skills, player info) is included in the prompt context sent to Anthropic's API when Claude invokes a tool.
 - **Token isolation.** The sidecar's `CLAUDE_CODE_OAUTH_TOKEN` stays in the sidecar's process environment. The plugin config only stores the localhost handshake token (`WOC_TOKEN`); it never sees the OAuth token.
+- **Loot Tracker dependency.** Proactive drop comments require RuneLite's built-in **Loot Tracker** plugin to be enabled (it posts the loot event); level-up and death comments have no such dependency.
