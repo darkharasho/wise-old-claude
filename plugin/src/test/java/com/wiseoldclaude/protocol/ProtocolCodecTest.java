@@ -42,4 +42,11 @@ class ProtocolCodecTest
         assertEquals("1", in.id());
         assertEquals("he", in.text());
     }
+
+    @Test
+    void buildsToolError()
+    {
+        assertEquals("{\"type\":\"tool_response\",\"requestId\":\"r1\",\"error\":\"not logged in\"}",
+            codec.toolError("r1", "not logged in"));
+    }
 }

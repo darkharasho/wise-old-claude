@@ -2,7 +2,6 @@ package com.wiseoldclaude.protocol;
 
 import com.google.gson.Gson;
 import com.google.gson.JsonObject;
-import com.google.gson.JsonParser;
 
 public class ProtocolCodec
 {
@@ -36,6 +35,7 @@ public class ProtocolCodec
 
     public String toolError(String requestId, String error)
     {
+        // Tool errors reuse type "tool_response" with an "error" field (frozen protocol); the sidecar branches on the error field, not a distinct type.
         JsonObject o = new JsonObject();
         o.addProperty("type", Messages.TOOL_RESPONSE);
         o.addProperty("requestId", requestId);
@@ -45,7 +45,7 @@ public class ProtocolCodec
 
     public Inbound parse(String raw)
     {
-        return new Inbound(new JsonParser().parse(raw).getAsJsonObject());
+        return new Inbound(gson.fromJson(raw, JsonObject.class));
     }
 
     /** Read-only view over an inbound message. */
