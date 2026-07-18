@@ -9,7 +9,9 @@ public class ReconnectingConnection
     private final ScheduledExecutorService scheduler;
     private final long baseMs;
     private final long maxMs;
-    private long delayMs;
+    // Mutated from the socket thread (onConnected/onDisconnected) and read by
+    // currentDelayMs; volatile guarantees visibility across those threads.
+    private volatile long delayMs;
 
     public ReconnectingConnection(Runnable connectAttempt, ScheduledExecutorService scheduler, long baseMs, long maxMs)
     {
