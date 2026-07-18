@@ -6,7 +6,6 @@ import java.util.function.Consumer;
 import javax.swing.*;
 import net.runelite.client.ui.ColorScheme;
 import net.runelite.client.ui.PluginPanel;
-import net.runelite.client.util.SwingUtil;
 
 public class WiseOldClaudePanel extends PluginPanel implements SidecarListener
 {
@@ -61,13 +60,20 @@ public class WiseOldClaudePanel extends PluginPanel implements SidecarListener
         });
     }
 
+    // streamingId is read and written only on the EDT (inside these lambdas),
+    // so it never crosses the socket thread → EDT boundary unsynchronized.
     @Override public void onDelta(String id, String text)
     {
-        if (!id.equals(streamingId)) { append("\nClaude: "); streamingId = id; }
-        append(text);
+        SwingUtilities.invokeLater(() -> {
+            if (!id.equals(streamingId)) { transcript.append("\nClaude: "); streamingId = id; }
+            transcript.append(text);
+        });
     }
 
-    @Override public void onDone(String id) { streamingId = null; append("\n\n"); }
+    @Override public void onDone(String id)
+    {
+        SwingUtilities.invokeLater(() -> { streamingId = null; transcript.append("\n\n"); });
+    }
 
     @Override public void onError(String id, String message) { append("\n[error] " + message + "\n"); }
 
