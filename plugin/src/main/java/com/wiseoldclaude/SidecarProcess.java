@@ -93,7 +93,7 @@ public class SidecarProcess
             return;
         }
         Map<String, String> env = buildChildEnv(System.getenv(), token, port, readEnvFile());
-        List<String> command = java.util.Arrays.asList(nodePath, "dist/main.js");
+        List<String> command = List.of(nodePath, "dist/main.js");
         try
         {
             process = launcher.launch(command, new File(sidecarDir), env);
@@ -131,9 +131,10 @@ public class SidecarProcess
 
     private void pipeOutput(Process p)
     {
-        if (p.getInputStream() == null) return;
+        final java.io.InputStream is = p.getInputStream();
+        if (is == null) return;
         Thread t = new Thread(() -> {
-            try (BufferedReader r = new BufferedReader(new InputStreamReader(p.getInputStream(), StandardCharsets.UTF_8)))
+            try (BufferedReader r = new BufferedReader(new InputStreamReader(is, StandardCharsets.UTF_8)))
             {
                 String line;
                 while ((line = r.readLine()) != null) log.info("[sidecar] {}", line);
