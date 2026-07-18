@@ -4,6 +4,7 @@ import com.google.gson.JsonObject;
 import com.google.inject.Provides;
 import java.awt.image.BufferedImage;
 import java.util.UUID;
+import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import javax.inject.Inject;
@@ -11,10 +12,13 @@ import lombok.extern.slf4j.Slf4j;
 import net.runelite.api.Client;
 import net.runelite.client.callback.ClientThread;
 import net.runelite.client.config.ConfigManager;
+import net.runelite.client.eventbus.EventBus;
+import net.runelite.client.game.ItemManager;
 import net.runelite.client.plugins.Plugin;
 import net.runelite.client.plugins.PluginDescriptor;
 import net.runelite.client.ui.ClientToolbar;
 import net.runelite.client.ui.NavigationButton;
+import com.wiseoldclaude.game.EventWatcher;
 import com.wiseoldclaude.game.GameStateProvider;
 import com.wiseoldclaude.game.ToolRouter;
 import com.wiseoldclaude.protocol.ProtocolCodec;
@@ -27,6 +31,8 @@ public class WiseOldClaudePlugin extends Plugin implements SidecarListener
     @Inject private ClientToolbar clientToolbar;
     @Inject private Client runeliteClient;
     @Inject private ClientThread clientThread;
+    @Inject private EventBus eventBus;
+    @Inject private ItemManager itemManager;
 
     private WiseOldClaudePanel panel;
     private SidecarClient client;
@@ -34,6 +40,9 @@ public class WiseOldClaudePlugin extends Plugin implements SidecarListener
     private ToolRouter toolRouter;
     private ScheduledExecutorService scheduler;
     private ReconnectingConnection reconnect;
+    private ExecutorService worker;
+    private ProactiveDispatcher dispatcher;
+    private EventWatcher eventWatcher;
 
     @Provides
     WiseOldClaudeConfig provideConfig(ConfigManager configManager)
@@ -58,11 +67,21 @@ public class WiseOldClaudePlugin extends Plugin implements SidecarListener
             () -> client.connect(config.sidecarHost(), config.sidecarPort(), config.token()),
             scheduler, 1000, 8000);
         reconnect.start();
+
+        worker = Executors.newSingleThreadExecutor();
+        dispatcher = new ProactiveDispatcher(worker, client);
+        ProactiveThrottle throttle = new ProactiveThrottle(
+            config.proactiveCooldownSeconds() * 1000L, System::currentTimeMillis);
+        eventWatcher = new EventWatcher(runeliteClient, itemManager, config, throttle,
+            payload -> dispatcher.dispatch(payload));
+        eventBus.register(eventWatcher);
     }
 
     @Override
     protected void shutDown()
     {
+        if (eventWatcher != null) eventBus.unregister(eventWatcher);
+        if (worker != null) worker.shutdownNow();
         if (scheduler != null) scheduler.shutdownNow();
         if (client != null) client.close();
         if (navButton != null) clientToolbar.removeNavigation(navButton);
@@ -75,18 +94,18 @@ public class WiseOldClaudePlugin extends Plugin implements SidecarListener
     @Override public void onConnected() { reconnect.onConnected(); panel.onConnected(); }
     @Override public void onDisconnected() { reconnect.onDisconnected(); panel.onDisconnected(); }
 
-    // Routes tool requests through ToolRouter. NB: this runs on the WebSocket read thread and
-    // blocks up to ~5s on the game-thread read, so tool calls are handled serially in v1.
     @Override public void onToolRequest(String requestId, String tool, JsonObject args)
     {
-        try
-        {
-            JsonObject data = toolRouter.handle(tool, args);
-            client.sendToolResponse(requestId, data);
-        }
-        catch (RuntimeException e)
-        {
-            client.sendToolError(requestId, e.getMessage());
-        }
+        dispatcher.submit(() -> {
+            try
+            {
+                JsonObject data = toolRouter.handle(tool, args);
+                client.sendToolResponse(requestId, data);
+            }
+            catch (RuntimeException e)
+            {
+                client.sendToolError(requestId, e.getMessage());
+            }
+        });
     }
 }

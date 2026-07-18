@@ -23,6 +23,10 @@ public interface WiseOldClaudeConfig extends Config
         description = "Let Claude comment unprompted on notable events")
     default boolean proactiveEnabled() { return true; }
 
+    @ConfigItem(keyName = "proactiveCooldownSeconds", name = "Proactive cooldown (s)", position = 5,
+        description = "Minimum seconds between proactive comments")
+    default int proactiveCooldownSeconds() { return 60; }
+
     @ConfigItem(keyName = "dropValueThreshold", name = "Drop value threshold", position = 6,
         description = "Minimum total GE value of a drop to comment on")
     default int dropValueThreshold() { return 100000; }
