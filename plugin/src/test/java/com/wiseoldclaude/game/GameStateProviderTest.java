@@ -37,5 +37,7 @@ class GameStateProviderTest
         assertFalse(out.has("error"));
         assertEquals(70, out.get("combatLevel").getAsInt());
         assertEquals(62, out.getAsJsonObject("hitpoints").get("current").getAsInt());
+        assertTrue(out.has("prayer"));
+        assertTrue(out.has("runEnergy"));
     }
 }

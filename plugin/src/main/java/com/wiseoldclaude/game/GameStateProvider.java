@@ -2,6 +2,8 @@ package com.wiseoldclaude.game;
 
 import com.google.gson.JsonObject;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 import net.runelite.api.Client;
 import net.runelite.api.GameState;
 import net.runelite.api.Skill;
@@ -17,15 +19,24 @@ public class GameStateProvider
         this.gameThread = gameThread;
     }
 
-    /** Runs a read on the game thread and blocks (bounded by the caller's tool timeout). */
+    /**
+     * Runs a read on the game thread and blocks until it completes, with a hard cap so a
+     * stalled game thread can never wedge the calling (WebSocket) thread indefinitely.
+     */
     private JsonObject onGameThread(java.util.function.Supplier<JsonObject> read)
     {
         CompletableFuture<JsonObject> future = new CompletableFuture<>();
         gameThread.run(() -> {
             try { future.complete(read.get()); }
-            catch (RuntimeException e) { future.completeExceptionally(e); }
+            catch (Exception e) { future.completeExceptionally(e); }
         });
-        try { return future.get(); }
+        try { return future.get(5, TimeUnit.SECONDS); }
+        catch (TimeoutException e)
+        {
+            JsonObject err = new JsonObject();
+            err.addProperty("error", "game thread timed out");
+            return err;
+        }
         catch (Exception e)
         {
             JsonObject err = new JsonObject();
