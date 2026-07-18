@@ -6,7 +6,13 @@ export type ToolResponse = {
   data?: Record<string, unknown>;
   error?: string;
 };
-export type PluginToSidecar = Hello | Chat | ToolResponse;
+export type Event = {
+  type: "event";
+  id: string;
+  kind: string;
+  detail: Record<string, unknown>;
+};
+export type PluginToSidecar = Hello | Chat | ToolResponse | Event;
 
 export type HelloOk = { type: "hello_ok" };
 export type HelloReject = { type: "hello_reject"; reason: string };
@@ -27,7 +33,7 @@ export type SidecarToPlugin =
   | ToolRequest
   | ErrorMsg;
 
-const INBOUND = new Set(["hello", "chat", "tool_response"]);
+const INBOUND = new Set(["hello", "chat", "tool_response", "event"]);
 
 export function parseMessage(raw: string): PluginToSidecar {
   const obj = JSON.parse(raw) as { type?: string };

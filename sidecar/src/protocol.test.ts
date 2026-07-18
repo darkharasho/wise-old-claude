@@ -20,4 +20,9 @@ describe("protocol", () => {
     const s = serialize({ type: "assistant_delta", id: "1", text: "he" });
     expect(JSON.parse(s)).toEqual({ type: "assistant_delta", id: "1", text: "he" });
   });
+
+  it("parses an event message", () => {
+    const raw = JSON.stringify({ type: "event", id: "e1", kind: "level_up", detail: { skill: "Attack", level: 70 } });
+    expect(parseMessage(raw)).toEqual({ type: "event", id: "e1", kind: "level_up", detail: { skill: "Attack", level: 70 } });
+  });
 });
