@@ -14,7 +14,8 @@ dependencies {
     compileOnly 'org.projectlombok:lombok:1.18.34'
     annotationProcessor 'org.projectlombok:lombok:1.18.34'
 
-    implementation 'org.java-websocket:Java-WebSocket:1.5.7'
+    // RuneLite provides slf4j at runtime; exclude it so the fat jar doesn't bundle a duplicate.
+    implementation('org.java-websocket:Java-WebSocket:1.5.7') { exclude group: 'org.slf4j' }
 
     testImplementation group: 'net.runelite', name: 'client', version: runeLiteVersion
     testImplementation 'junit:junit:4.13.2'
@@ -31,4 +32,21 @@ java {
 
 test {
     useJUnitPlatform()
+}
+
+// Produces build/libs/wise-old-claude.jar — a sideloadable RuneLite plugin jar that
+// bundles the runtime deps RuneLite does not provide (Java-WebSocket). Drop it in
+// RuneLite's sideloaded-plugins directory. RuneLite discovers the plugin via its
+// @PluginDescriptor (no runelite-plugin.properties needed for sideloading).
+tasks.register('fatJar', Jar) {
+    archiveBaseName = 'wise-old-claude'
+    archiveClassifier = ''
+    archiveVersion = ''
+    duplicatesStrategy = DuplicatesStrategy.EXCLUDE
+    from sourceSets.main.output
+    dependsOn configurations.runtimeClasspath
+    from {
+        configurations.runtimeClasspath.findAll { it.name.endsWith('.jar') }.collect { zipTree(it) }
+    }
+    exclude 'META-INF/*.SF', 'META-INF/*.DSA', 'META-INF/*.RSA', 'META-INF/versions/**', 'module-info.class'
 }
