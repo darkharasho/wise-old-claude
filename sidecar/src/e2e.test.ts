@@ -112,12 +112,15 @@ describe("e2e", () => {
 
     const toolReq = await client.next();
     expect(toolReq.type).toBe("tool_request");
+    expect(toolReq.tool).toBe("get_player_state");
+    expect(typeof toolReq.requestId).toBe("string");
     client.send({ type: "tool_response", requestId: toolReq.requestId, data: { combatLevel: 80 } });
 
     const delta = await client.next();
     expect(delta.type).toBe("assistant_delta");
     expect(delta.id).toBe("e1");
     expect(delta.text).toContain("70");
+    expect(delta.text).toContain("Attack");
 
     expect(await client.next()).toEqual({ type: "assistant_done", id: "e1" });
     client.close();
