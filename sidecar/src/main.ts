@@ -1,6 +1,7 @@
 import { query, createSdkMcpServer } from "@anthropic-ai/claude-agent-sdk";
 import { SidecarServer } from "./server.js";
 import { runChat } from "./agent.js";
+import { buildTools } from "./tools.js";
 
 const port = Number(process.env.WOC_PORT ?? "8137");
 const token = process.env.WOC_TOKEN ?? "";
@@ -19,8 +20,11 @@ const server = new SidecarServer({
   port,
   token,
   onChat: (id, text, ctx) => {
-    // Tools added in Task 12; empty MCP server for now.
-    const mcpServer = createSdkMcpServer({ name: "gielinor", version: "0.1.0", tools: [] });
+    const mcpServer = createSdkMcpServer({
+      name: "gielinor",
+      version: "0.1.0",
+      tools: buildTools(ctx.bridge),
+    });
     void runChat({ queryFn: query as any, mcpServer, model }, id, text, ctx);
   },
 });
