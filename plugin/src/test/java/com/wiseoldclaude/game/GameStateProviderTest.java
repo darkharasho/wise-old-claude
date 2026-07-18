@@ -40,4 +40,28 @@ class GameStateProviderTest
         assertTrue(out.has("prayer"));
         assertTrue(out.has("runEnergy"));
     }
+
+    @Test
+    void inventoryReportsItemsAndNullBankWhenClosed()
+    {
+        Client client = mock(Client.class);
+        when(client.getGameState()).thenReturn(GameState.LOGGED_IN);
+        when(client.getLocalPlayer()).thenReturn(mock(net.runelite.api.Player.class));
+
+        net.runelite.api.ItemContainer inv = mock(net.runelite.api.ItemContainer.class);
+        when(inv.getItems()).thenReturn(new net.runelite.api.Item[]{ new net.runelite.api.Item(995, 100) });
+        when(client.getItemContainer(net.runelite.api.InventoryID.INVENTORY)).thenReturn(inv);
+        when(client.getItemContainer(net.runelite.api.InventoryID.EQUIPMENT)).thenReturn(null);
+        when(client.getItemContainer(net.runelite.api.InventoryID.BANK)).thenReturn(null);
+
+        net.runelite.api.ItemComposition coin = mock(net.runelite.api.ItemComposition.class);
+        when(coin.getName()).thenReturn("Coins");
+        when(client.getItemDefinition(995)).thenReturn(coin);
+
+        GameStateProvider p = new GameStateProvider(client, inline);
+        JsonObject out = p.inventory();
+        assertTrue(out.get("bank").isJsonNull());
+        assertEquals("Coins", out.getAsJsonArray("inventory").get(0).getAsJsonObject().get("name").getAsString());
+        assertEquals(100, out.getAsJsonArray("inventory").get(0).getAsJsonObject().get("quantity").getAsInt());
+    }
 }

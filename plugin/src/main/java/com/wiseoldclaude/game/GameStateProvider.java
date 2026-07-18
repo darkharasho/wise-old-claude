@@ -1,11 +1,15 @@
 package com.wiseoldclaude.game;
 
+import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import net.runelite.api.Client;
 import net.runelite.api.GameState;
+import net.runelite.api.InventoryID;
+import net.runelite.api.Item;
+import net.runelite.api.ItemContainer;
 import net.runelite.api.Skill;
 
 public class GameStateProvider
@@ -60,6 +64,40 @@ public class GameStateProvider
             o.addProperty("runEnergy", client.getEnergy() / 100);
             return o;
         });
+    }
+
+    public JsonObject inventory()
+    {
+        return onGameThread(() -> {
+            JsonObject o = new JsonObject();
+            if (client.getGameState() != GameState.LOGGED_IN || client.getLocalPlayer() == null)
+            {
+                o.addProperty("error", "not logged in");
+                return o;
+            }
+            o.add("inventory", items(client.getItemContainer(InventoryID.INVENTORY)));
+            o.add("equipment", items(client.getItemContainer(InventoryID.EQUIPMENT)));
+            ItemContainer bank = client.getItemContainer(InventoryID.BANK);
+            if (bank == null) o.add("bank", com.google.gson.JsonNull.INSTANCE);
+            else o.add("bank", items(bank));
+            return o;
+        });
+    }
+
+    private JsonArray items(ItemContainer container)
+    {
+        JsonArray arr = new JsonArray();
+        if (container == null) return arr;
+        for (Item item : container.getItems())
+        {
+            if (item.getId() < 0 || item.getQuantity() <= 0) continue;
+            JsonObject j = new JsonObject();
+            j.addProperty("id", item.getId());
+            j.addProperty("name", client.getItemDefinition(item.getId()).getName());
+            j.addProperty("quantity", item.getQuantity());
+            arr.add(j);
+        }
+        return arr;
     }
 
     private JsonObject skill(Skill s)
