@@ -71,7 +71,7 @@ Sidecar → plugin:
     "test": "vitest run --maxWorkers=2"
   },
   "dependencies": {
-    "@anthropic-ai/claude-agent-sdk": "^0.1.0",
+    "@anthropic-ai/claude-agent-sdk": "^0.3.196",
     "ws": "^8.18.0",
     "zod": "^3.23.8"
   },
