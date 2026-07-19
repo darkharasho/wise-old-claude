@@ -113,6 +113,8 @@ public class WiseOldClaudePlugin extends Plugin implements SidecarListener
         eventSubs.add(eventBus.register(net.runelite.api.events.ActorDeath.class, eventWatcher::onActorDeath, 0f));
         eventSubs.add(eventBus.register(net.runelite.client.plugins.loottracker.LootReceived.class, eventWatcher::onLootReceived, 0f));
         eventSubs.add(eventBus.register(net.runelite.api.events.GameStateChanged.class, eventWatcher::onGameStateChanged, 0f));
+        eventSubs.add(eventBus.register(net.runelite.api.events.GameTick.class, eventWatcher::onGameTick, 0f));
+        eventSubs.add(eventBus.register(net.runelite.api.events.GrandExchangeOfferChanged.class, eventWatcher::onGrandExchangeOfferChanged, 0f));
     }
 
     // Load the bundled item name->id catalog (tradeable items + common untradeables) so

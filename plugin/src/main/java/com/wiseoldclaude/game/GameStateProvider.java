@@ -6,9 +6,12 @@ import java.lang.reflect.Field;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
+import java.util.HashSet;
+import java.util.Set;
 import net.runelite.api.Client;
 import net.runelite.api.EquipmentInventorySlot;
 import net.runelite.api.Experience;
+import net.runelite.api.GameObject;
 import net.runelite.api.GameState;
 import net.runelite.api.GrandExchangeOffer;
 import net.runelite.api.GrandExchangeOfferState;
@@ -16,8 +19,11 @@ import net.runelite.api.InventoryID;
 import net.runelite.api.Item;
 import net.runelite.api.ItemContainer;
 import net.runelite.api.NPC;
+import net.runelite.api.ObjectComposition;
 import net.runelite.api.Player;
+import net.runelite.api.Scene;
 import net.runelite.api.Skill;
+import net.runelite.api.Tile;
 import net.runelite.api.VarPlayer;
 import net.runelite.api.Varbits;
 import net.runelite.api.coords.WorldPoint;
@@ -435,6 +441,58 @@ public class GameStateProvider
             }
             o.add("achievementDiaries", diaries);
             o.add("combatAchievementTiers", combat);
+            return o;
+        });
+    }
+
+    // Find scene game objects whose name contains the query; returns their tile coords
+    // (deduped, capped) so the caller can highlight them. Game thread.
+    public JsonObject findObjectTiles(String name)
+    {
+        return onGameThread(() -> {
+            JsonObject o = new JsonObject();
+            if (client.getGameState() != GameState.LOGGED_IN)
+            {
+                o.addProperty("error", "not logged in");
+                return o;
+            }
+            String q = name.toLowerCase(java.util.Locale.ROOT);
+            JsonArray arr = new JsonArray();
+            Set<Long> seen = new HashSet<>();
+            Scene scene = client.getScene();
+            Tile[][][] tiles = scene.getTiles();
+            int plane = client.getPlane();
+            outer:
+            for (Tile[] row : tiles[plane])
+            {
+                for (Tile tile : row)
+                {
+                    if (tile == null) continue;
+                    GameObject[] objs = tile.getGameObjects();
+                    if (objs == null) continue;
+                    for (GameObject go : objs)
+                    {
+                        if (go == null) continue;
+                        ObjectComposition comp;
+                        try { comp = client.getObjectDefinition(go.getId()); }
+                        catch (RuntimeException e) { continue; }
+                        if (comp == null || comp.getName() == null) continue;
+                        String n = comp.getName();
+                        if (n.equalsIgnoreCase("null") || !n.toLowerCase(java.util.Locale.ROOT).contains(q)) continue;
+                        WorldPoint wp = tile.getWorldLocation();
+                        long key = ((long) wp.getX() << 20) | wp.getY();
+                        if (!seen.add(key)) continue;
+                        JsonObject j = new JsonObject();
+                        j.addProperty("x", wp.getX());
+                        j.addProperty("y", wp.getY());
+                        j.addProperty("plane", wp.getPlane());
+                        j.addProperty("name", n);
+                        arr.add(j);
+                        if (arr.size() >= 25) break outer;
+                    }
+                }
+            }
+            o.add("objects", arr);
             return o;
         });
     }

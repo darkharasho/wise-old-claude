@@ -1,5 +1,7 @@
 package com.wiseoldclaude.game;
 
+import com.google.gson.JsonArray;
+import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 
 public class ToolRouter
@@ -48,6 +50,22 @@ public class ToolRouter
                 int plane = (args != null && args.has("plane")) ? argInt(args, "plane") : 0;
                 highlight.highlightTile(argInt(args, "x"), argInt(args, "y"), plane, argStr(args, "label"), HIGHLIGHT_TTL_MS);
                 return ok("tile marked");
+            }
+            case "highlight_object":
+            {
+                if (highlight == null) return error("highlighting unavailable");
+                String name = argStr(args, "name");
+                if (name == null || name.trim().isEmpty()) return error("name required");
+                JsonObject found = provider.findObjectTiles(name.trim());
+                if (found.has("error")) return found;
+                JsonArray objs = found.getAsJsonArray("objects");
+                for (JsonElement el : objs)
+                {
+                    JsonObject j = el.getAsJsonObject();
+                    highlight.highlightTile(j.get("x").getAsInt(), j.get("y").getAsInt(),
+                        j.get("plane").getAsInt(), null, HIGHLIGHT_TTL_MS);
+                }
+                return ok("highlighted " + objs.size() + " '" + name.trim() + "' object tile(s)");
             }
             case "clear_highlights":
             {

@@ -11,8 +11,13 @@ export const SYSTEM_PROMPT = [
   "requirements, or strategy from the Old School RuneScape Wiki rather than",
   "relying on memory. When it helps, cite the wiki page URL it returns.",
   "You can draw on the player's screen: highlight_npc (outline NPCs by name),",
-  "highlight_tile (mark a world tile, optional label), and clear_highlights.",
-  "Use these to point things out visually when it helps; clear when no longer needed.",
+  "highlight_object (banks, trees, rocks, doors, altars…), highlight_tile (mark a",
+  "world tile, optional label), and clear_highlights. Use these to point things out",
+  "visually when it helps; clear when no longer needed.",
+  "For 'am I ready for X?' style questions (a boss, quest, or raid), combine your",
+  "tools — get_skills, get_equipment, get_quests, get_bank — with search_osrs_wiki",
+  "for the requirements, then give a clear ready/not-ready verdict with the gaps,",
+  "and suggest gear the player already owns (from their bank) where relevant.",
   "Keep answers short and skimmable — this is a narrow panel, not an essay.",
   "Do NOT use emoji or emoticons. The panel renders real in-game item icons",
   "automatically next to item names, so never add decorative symbols yourself.",
@@ -44,6 +49,7 @@ export const ALLOWED_TOOLS = [
   "get_varbit",
   "get_varp",
   "highlight_npc",
+  "highlight_object",
   "highlight_tile",
   "clear_highlights",
   "search_osrs_wiki",
@@ -107,6 +113,14 @@ export function proactivePrompt(kind: string, detail: Record<string, unknown>): 
       return `The player just died. React briefly, in character — wry or encouraging.`;
     case "drop":
       return `The player just received a valuable drop worth ${detail.totalValue} gp: ${JSON.stringify(detail.items)}. React briefly, in character; you may check their inventory.`;
+    case "low_hp":
+      return `The player's hitpoints just dropped to ${detail.current}/${detail.max} — they're in danger. Give ONE urgent, in-character warning (eat/pray/flee).`;
+    case "low_prayer":
+      return `The player's prayer just dropped to ${detail.current}/${detail.max}. Give ONE brief in-character heads-up (drink a potion or recharge soon).`;
+    case "low_run":
+      return `The player's run energy is low (${detail.runEnergy}%). One short in-character aside; mention stamina/rest only if apt.`;
+    case "ge_complete":
+      return `The player's Grand Exchange offer just completed: ${detail.action} ${detail.quantity}x ${detail.item} at ${detail.price} gp each. React briefly, in character.`;
     default:
       return `Something happened in-game (${kind}). React briefly, in character.`;
   }

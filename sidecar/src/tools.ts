@@ -90,6 +90,10 @@ export function buildTools(bridge: ToolBridge) {
       "Draw a highlight outline on nearby NPCs whose name matches, on the player's screen. Auto-clears after ~60s.",
       { name: z.string().describe("NPC name to highlight, e.g. 'Banker' or 'Zulrah'") },
       async (args: { name: string }) => runTool(bridge, "highlight_npc", { name: args.name })),
+    tool("highlight_object",
+      "Highlight scene objects (banks, trees, rocks, doors, altars, etc.) whose name matches, on the player's screen. Auto-clears after ~60s.",
+      { name: z.string().describe("Object name to highlight, e.g. 'Bank booth' or 'Altar'") },
+      async (args: { name: string }) => runTool(bridge, "highlight_object", { name: args.name })),
     tool("highlight_tile",
       "Mark a world tile on the player's screen with an outline and optional label. Auto-clears after ~60s.",
       {
