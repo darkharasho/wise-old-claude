@@ -4,6 +4,7 @@ import { ToolBridge } from "./toolBridge.js";
 
 export type SessionCtx = {
   sendDelta(id: string, text: string): void;
+  sendThinking(id: string, text: string): void;
   sendDone(id: string): void;
   sendError(id: string | null, message: string): void;
   bridge: ToolBridge;
@@ -40,6 +41,7 @@ export class SidecarServer {
     const bridge = new ToolBridge((req) => send(req));
     const ctx: SessionCtx = {
       sendDelta: (id, text) => send({ type: "assistant_delta", id, text }),
+      sendThinking: (id, text) => send({ type: "assistant_thinking", id, text }),
       sendDone: (id) => send({ type: "assistant_done", id }),
       sendError: (id, message) => send({ type: "error", id, message }),
       bridge,

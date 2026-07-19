@@ -27,11 +27,14 @@ import javax.swing.*;
 import javax.swing.text.html.HTMLDocument;
 import javax.swing.text.html.HTMLEditorKit;
 import javax.swing.text.html.StyleSheet;
+import javax.swing.event.HyperlinkEvent;
 import net.runelite.client.ui.ColorScheme;
 import net.runelite.client.ui.PluginPanel;
 import net.runelite.client.util.AsyncBufferedImage;
 import net.runelite.client.util.ImageUtil;
+import net.runelite.client.util.LinkBrowser;
 import org.commonmark.Extension;
+import org.commonmark.ext.autolink.AutolinkExtension;
 import org.commonmark.ext.gfm.tables.TablesExtension;
 import org.commonmark.parser.Parser;
 import org.commonmark.renderer.html.HtmlRenderer;
@@ -39,7 +42,8 @@ import org.commonmark.renderer.html.HtmlRenderer;
 public class WiseOldClaudePanel extends PluginPanel implements SidecarListener
 {
     // Markdown -> HTML. GFM tables extension renders the |Item|Qty| tables the model emits.
-    private static final List<Extension> MD_EXT = Arrays.asList(TablesExtension.create());
+    private static final List<Extension> MD_EXT =
+        Arrays.asList(TablesExtension.create(), AutolinkExtension.create());
     private static final Parser MD = Parser.builder().extensions(MD_EXT).build();
     private static final HtmlRenderer HTML = HtmlRenderer.builder().extensions(MD_EXT).build();
 
@@ -53,6 +57,9 @@ public class WiseOldClaudePanel extends PluginPanel implements SidecarListener
         final String role;
         final String cssClass;
         final StringBuilder md = new StringBuilder();
+        final StringBuilder reasoning = new StringBuilder();
+        boolean reasoningExpanded = true;
+        String id;
         Msg(String role, String cssClass) { this.role = role; this.cssClass = cssClass; }
     }
 
@@ -110,14 +117,25 @@ public class WiseOldClaudePanel extends PluginPanel implements SidecarListener
         ss.addRule("th { border: 1px solid #4a4a4a; padding: 3px 8px; background: #2c2c2c; }");
         ss.addRule("td { border: 1px solid #4a4a4a; padding: 3px 8px; }");
         ss.addRule("code { background: #333333; color: #e6c07b; }");
+        ss.addRule("a { color: #6baadd; }");
         // Wide left indent so two-digit ordered-list markers (e.g. "10.") aren't clipped.
         ss.addRule("ul, ol { margin: 6px 4px 6px 26px; }");
         ss.addRule("li { margin: 3px 0; }");
         transcript.setBackground(ColorScheme.DARK_GRAY_COLOR);
+        // Open real links in the browser; custom woc-toggle: links flip reasoning visibility.
+        transcript.addHyperlinkListener(e -> {
+            if (e.getEventType() != HyperlinkEvent.EventType.ACTIVATED) return;
+            String href = e.getDescription();
+            if (href == null) return;
+            if (href.startsWith("woc-toggle:")) { toggleReasoning(href.substring("woc-toggle:".length())); return; }
+            LinkBrowser.browse(href);
+        });
         rebuild();
 
         JScrollPane transcriptScroll = new JScrollPane(transcript);
         transcriptScroll.setBorder(BorderFactory.createEmptyBorder());
+        // Wrap long content instead of showing a horizontal scrollbar.
+        transcriptScroll.setHorizontalScrollBarPolicy(JScrollPane.HORIZONTAL_SCROLLBAR_NEVER);
 
         thinkingLabel.setForeground(new Color(0xE0A032));
         thinkingLabel.setBorder(BorderFactory.createEmptyBorder(2, 2, 4, 2));
@@ -263,7 +281,7 @@ public class WiseOldClaudePanel extends PluginPanel implements SidecarListener
             // Only decorate finished assistant messages, so icons don't flicker mid-stream.
             if (!streaming && "role-claude".equals(m.cssClass)) rendered = injectItemIcons(rendered);
             html.append("<div class='msg'><span class='").append(m.cssClass).append("'>")
-                .append(escape(m.role)).append("</span>").append(rendered).append("</div>");
+                .append(escape(m.role)).append("</span>").append(reasoningBlock(m, i)).append(rendered).append("</div>");
         }
         html.append("</body></html>");
         return html.toString();
@@ -368,6 +386,23 @@ public class WiseOldClaudePanel extends PluginPanel implements SidecarListener
         }
     }
 
+    // A collapsible "reasoning" section: a toggle link, plus the reasoning text when expanded.
+    private String reasoningBlock(Msg m, int index)
+    {
+        if (m.reasoning.length() == 0) return "";
+        StringBuilder b = new StringBuilder();
+        b.append("<div style='margin:1px 0 3px 0;'><a href='woc-toggle:").append(index).append("' style='color:#888;'>")
+            .append(m.reasoningExpanded ? "&#9662; hide reasoning" : "&#9656; show reasoning")
+            .append("</a></div>");
+        if (m.reasoningExpanded)
+        {
+            b.append("<div style='color:#8a8a8a; font-style:italic; margin:0 0 4px 6px;'>")
+                .append(escape(m.reasoning.toString()).replace("\n", "<br>"))
+                .append("</div>");
+        }
+        return b.toString();
+    }
+
     private void registerLogo()
     {
         if (logoRegistered || logo == null) return;
@@ -401,21 +436,57 @@ public class WiseOldClaudePanel extends PluginPanel implements SidecarListener
     // so it never crosses the socket thread -> EDT boundary unsynchronized.
     @Override public void onDelta(String id, String text)
     {
+        SwingUtilities.invokeLater(() -> { ensureAssistant(id).md.append(text); rebuild(); });
+    }
+
+    @Override public void onThinking(String id, String text)
+    {
         SwingUtilities.invokeLater(() -> {
-            if (!id.equals(streamingId))
-            {
-                stopThinking();
-                messages.add(new Msg("Wise Old Claude", "role-claude"));
-                streamingId = id;
-            }
-            messages.get(messages.size() - 1).md.append(text);
+            Msg m = ensureAssistant(id);
+            m.reasoningExpanded = true;
+            m.reasoning.append(text);
             rebuild();
         });
     }
 
+    // Return the assistant message for this stream id, creating it on the first delta/thinking.
+    private Msg ensureAssistant(String id)
+    {
+        if (!id.equals(streamingId))
+        {
+            stopThinking();
+            Msg m = new Msg("Wise Old Claude", "role-claude");
+            m.id = id;
+            messages.add(m);
+            streamingId = id;
+            return m;
+        }
+        return messages.get(messages.size() - 1);
+    }
+
+    private void toggleReasoning(String indexStr)
+    {
+        try
+        {
+            int idx = Integer.parseInt(indexStr);
+            if (idx >= 0 && idx < messages.size())
+            {
+                Msg m = messages.get(idx);
+                m.reasoningExpanded = !m.reasoningExpanded;
+                rebuild();
+            }
+        }
+        catch (NumberFormatException ignored) {}
+    }
+
     @Override public void onDone(String id)
     {
-        SwingUtilities.invokeLater(() -> { stopThinking(); streamingId = null; rebuild(); });
+        SwingUtilities.invokeLater(() -> {
+            stopThinking();
+            for (Msg m : messages) if (id.equals(m.id)) m.reasoningExpanded = false;
+            streamingId = null;
+            rebuild();
+        });
     }
 
     @Override public void onError(String id, String message)

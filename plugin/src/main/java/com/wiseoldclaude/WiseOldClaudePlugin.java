@@ -139,6 +139,7 @@ public class WiseOldClaudePlugin extends Plugin implements SidecarListener
 
     // SidecarListener — chat events forward to the panel.
     @Override public void onDelta(String id, String text) { panel.onDelta(id, text); }
+    @Override public void onThinking(String id, String text) { panel.onThinking(id, text); }
     @Override public void onDone(String id) { panel.onDone(id); }
     @Override public void onError(String id, String message) { panel.onError(id, message); }
     @Override public void onConnected() { reconnect.onConnected(); panel.onConnected(); }

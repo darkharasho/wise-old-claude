@@ -62,6 +62,7 @@ public class SidecarClient
             case Messages.HELLO_OK: listener.onConnected(); break;
             case Messages.HELLO_REJECT: listener.onError(null, "sidecar rejected token"); break;
             case Messages.ASSISTANT_DELTA: listener.onDelta(in.id(), in.text()); break;
+            case Messages.ASSISTANT_THINKING: listener.onThinking(in.id(), in.text()); break;
             case Messages.ASSISTANT_DONE: listener.onDone(in.id()); break;
             case Messages.TOOL_REQUEST: listener.onToolRequest(in.requestId(), in.tool(), in.args()); break;
             case Messages.ERROR: listener.onError(in.id(), in.message()); break;

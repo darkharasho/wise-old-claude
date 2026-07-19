@@ -14,6 +14,7 @@ function recordingCtx() {
     events,
     ctx: {
       sendDelta: (_id: string, t: string) => events.push("delta:" + t),
+      sendThinking: (_id: string, t: string) => events.push("thinking:" + t),
       sendDone: () => events.push("done"),
       sendError: (_id: string | null, m: string) => events.push("error:" + m),
       bridge: {} as any,
@@ -26,6 +27,17 @@ describe("runChat", () => {
     const { events, ctx } = recordingCtx();
     await runChat({ queryFn: fakeQuery as any, mcpServer: {} as any, model: "m" }, "1", "hi", ctx);
     expect(events).toEqual(["delta:Hel", "delta:lo", "done"]);
+  });
+
+  it("emits thinking blocks before text", async () => {
+    async function* withThinking() {
+      yield { type: "assistant", message: { content: [{ type: "thinking", thinking: "hmm" }] } };
+      yield { type: "assistant", message: { content: [{ type: "text", text: "answer" }] } };
+      yield { type: "result", subtype: "success" };
+    }
+    const { events, ctx } = recordingCtx();
+    await runChat({ queryFn: withThinking as any, mcpServer: {} as any, model: "m" }, "1", "hi", ctx);
+    expect(events).toEqual(["thinking:hmm", "delta:answer", "done"]);
   });
 
   it("emits error when query throws", async () => {
@@ -45,6 +57,7 @@ describe("proactive", () => {
     const events: string[] = [];
     return { events, ctx: {
       sendDelta: (_id: string, t: string) => events.push("delta:" + t),
+      sendThinking: (_id: string, t: string) => events.push("thinking:" + t),
       sendDone: () => events.push("done"),
       sendError: (_id: string | null, m: string) => events.push("error:" + m),
       bridge: {} as any,

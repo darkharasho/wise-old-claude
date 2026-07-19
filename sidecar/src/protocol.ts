@@ -17,6 +17,7 @@ export type PluginToSidecar = Hello | Chat | ToolResponse | Event;
 export type HelloOk = { type: "hello_ok" };
 export type HelloReject = { type: "hello_reject"; reason: string };
 export type AssistantDelta = { type: "assistant_delta"; id: string; text: string };
+export type AssistantThinking = { type: "assistant_thinking"; id: string; text: string };
 export type AssistantDone = { type: "assistant_done"; id: string };
 export type ToolRequest = {
   type: "tool_request";
@@ -29,6 +30,7 @@ export type SidecarToPlugin =
   | HelloOk
   | HelloReject
   | AssistantDelta
+  | AssistantThinking
   | AssistantDone
   | ToolRequest
   | ErrorMsg;

@@ -59,6 +59,7 @@ async function streamAgent(
         systemPrompt,
         model: deps.model,
         includePartialMessages: false,
+        thinking: { type: "adaptive" },
         tools: [],
         allowedTools: ALLOWED_TOOLS,
       },
@@ -66,7 +67,8 @@ async function streamAgent(
     for await (const msg of stream as AsyncIterable<any>) {
       if (msg?.type === "assistant") {
         for (const block of msg.message?.content ?? []) {
-          if (block?.type === "text" && block.text) ctx.sendDelta(id, block.text);
+          if (block?.type === "thinking" && block.thinking) ctx.sendThinking(id, block.thinking);
+          else if (block?.type === "text" && block.text) ctx.sendDelta(id, block.text);
         }
       }
     }
