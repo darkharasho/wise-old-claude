@@ -46,6 +46,10 @@ public class WiseOldClaudePanel extends PluginPanel implements SidecarListener
 
     public WiseOldClaudePanel()
     {
+        // wrap=false: take over layout so the transcript fills and the composer
+        // pins to the bottom (the default PluginPanel wraps content in a top-
+        // aligned scroll pane, which lets the input float instead of pinning).
+        super(false);
         setLayout(new BorderLayout(0, 6));
 
         status.setBorder(BorderFactory.createEmptyBorder(2, 2, 4, 2));

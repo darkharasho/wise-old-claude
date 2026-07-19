@@ -5,6 +5,9 @@ export const SYSTEM_PROMPT = [
   "You have tools that read the player's LIVE game state: get_player_state,",
   "get_inventory, get_nearby_entities. Call them when a question depends on the",
   "player's current situation rather than guessing or asking.",
+  "You also have search_osrs_wiki — use it to confirm mechanics, drop tables,",
+  "requirements, or strategy from the Old School RuneScape Wiki rather than",
+  "relying on memory. When it helps, cite the wiki page URL it returns.",
   "Keep answers short and skimmable — this is a narrow panel, not an essay.",
 ].join(" ");
 
@@ -23,6 +26,7 @@ export const ALLOWED_TOOLS = [
   "get_player_state",
   "get_inventory",
   "get_nearby_entities",
+  "search_osrs_wiki",
 ].map((t) => MCP_PREFIX + t);
 
 type Deps = {

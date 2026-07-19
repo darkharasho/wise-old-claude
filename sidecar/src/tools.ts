@@ -1,7 +1,42 @@
 import { tool } from "@anthropic-ai/claude-agent-sdk";
+import { z } from "zod";
 import type { ToolBridge } from "./toolBridge.js";
 
 type TextResult = { content: { type: "text"; text: string }[] };
+
+// The OSRS Wiki API rejects requests without a descriptive User-Agent.
+const WIKI_UA = "WiseOldClaude/0.1 (RuneLite plugin; project96@gmail.com)";
+const WIKI_API = "https://oldschool.runescape.wiki/api.php";
+
+// Look a topic up on the Old School RuneScape Wiki: find the best-matching page,
+// then return its intro extract, canonical URL, and main image URL.
+export async function searchWiki(query: string): Promise<Record<string, unknown>> {
+  const searchUrl =
+    `${WIKI_API}?action=query&list=search&srlimit=1&format=json&srsearch=${encodeURIComponent(query)}`;
+  const searchRes = await fetch(searchUrl, { headers: { "User-Agent": WIKI_UA } });
+  if (!searchRes.ok) return { error: `wiki search failed: HTTP ${searchRes.status}` };
+  const searchJson: any = await searchRes.json();
+  const hit = searchJson?.query?.search?.[0];
+  if (!hit) return { error: `no OSRS Wiki page found for "${query}"` };
+
+  const title: string = hit.title;
+  const pageUrl =
+    `${WIKI_API}?action=query&prop=extracts|pageimages&exintro=1&explaintext=1&piprop=original` +
+    `&format=json&titles=${encodeURIComponent(title)}`;
+  const pageRes = await fetch(pageUrl, { headers: { "User-Agent": WIKI_UA } });
+  if (!pageRes.ok) return { error: `wiki fetch failed: HTTP ${pageRes.status}` };
+  const pageJson: any = await pageRes.json();
+  const page: any = Object.values(pageJson?.query?.pages ?? {})[0] ?? {};
+
+  let extract: string = (page.extract ?? "").trim();
+  if (extract.length > 1500) extract = extract.slice(0, 1500) + "…";
+  return {
+    title,
+    url: `https://oldschool.runescape.wiki/w/${encodeURIComponent(title.replace(/ /g, "_"))}`,
+    extract,
+    imageUrl: page.original?.source ?? null,
+  };
+}
 
 export async function runTool(
   bridge: ToolBridge,
@@ -28,5 +63,14 @@ export function buildTools(bridge: ToolBridge) {
       {}, async () => runTool(bridge, "get_inventory", {})),
     tool("get_nearby_entities", "Nearby NPCs, players, ground items, and objects.",
       {}, async () => runTool(bridge, "get_nearby_entities", {})),
+    tool(
+      "search_osrs_wiki",
+      "Look up an item, monster, quest, or mechanic on the Old School RuneScape Wiki. " +
+        "Returns the page's intro text, canonical URL, and main image URL.",
+      { query: z.string().describe("What to look up, e.g. an item or monster name") },
+      async (args: { query: string }) => ({
+        content: [{ type: "text" as const, text: JSON.stringify(await searchWiki(args.query)) }],
+      }),
+    ),
   ];
 }
