@@ -11,6 +11,7 @@ import java.awt.event.KeyEvent;
 import java.io.StringReader;
 import java.net.MalformedURLException;
 import java.net.URL;
+import java.net.URLDecoder;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -287,31 +288,67 @@ public class WiseOldClaudePanel extends PluginPanel implements SidecarListener
         return html.toString();
     }
 
-    // Insert item sprites inline. Scans only the text between HTML tags so tags/attributes
-    // are never corrupted, then replaces item-name phrases with <img> + the original text.
+    // Post-process the rendered HTML: inject item sprites in normal text, but inside <a> links
+    // skip icons and shorten a bare-URL label (keeps clicks working, avoids horizontal overflow).
     private String injectItemIcons(String html)
     {
-        if (itemIndex.isEmpty()) return html;
         StringBuilder out = new StringBuilder(html.length() + 64);
         int i = 0, n = html.length();
+        boolean inAnchor = false;
         while (i < n)
         {
             if (html.charAt(i) == '<')
             {
                 int gt = html.indexOf('>', i);
                 if (gt < 0) { out.append(html, i, n); break; }
-                out.append(html, i, gt + 1);
+                String tag = html.substring(i, gt + 1);
+                String lower = tag.toLowerCase(Locale.ROOT);
+                if (lower.startsWith("<a ") || lower.equals("<a>")) inAnchor = true;
+                else if (lower.startsWith("</a")) inAnchor = false;
+                out.append(tag);
                 i = gt + 1;
             }
             else
             {
                 int lt = html.indexOf('<', i);
                 if (lt < 0) lt = n;
-                out.append(replaceItemsInText(html.substring(i, lt)));
+                String text = html.substring(i, lt);
+                if (inAnchor) out.append(shortenLinkText(text));
+                else if (!itemIndex.isEmpty()) out.append(replaceItemsInText(text));
+                else out.append(text);
                 i = lt;
             }
         }
         return out.toString();
+    }
+
+    // Bare URLs used as their own link text get shortened to the wiki page name (or host).
+    private static String shortenLinkText(String text)
+    {
+        String t = text.trim();
+        if (!t.startsWith("http")) return text;
+        try
+        {
+            int w = t.indexOf("/w/");
+            if (w >= 0)
+            {
+                String seg = t.substring(w + 3);
+                int cut = seg.length();
+                for (String d : new String[]{ "/", "#", "?" }) { int k = seg.indexOf(d); if (k >= 0) cut = Math.min(cut, k); }
+                seg = URLDecoder.decode(seg.substring(0, cut), "UTF-8").replace('_', ' ');
+                if (!seg.isEmpty()) return truncate(seg, 46);
+            }
+            int p = t.indexOf("://");
+            String rest = p >= 0 ? t.substring(p + 3) : t;
+            int slash = rest.indexOf('/');
+            return truncate(slash >= 0 ? rest.substring(0, slash) : rest, 46);
+        }
+        catch (Exception e) { return truncate(t, 46); }
+    }
+
+    private static String truncate(String s, int max)
+    {
+        return s.length() <= max ? s : s.substring(0, max - 1) + "…";
     }
 
     private String replaceItemsInText(String text)
