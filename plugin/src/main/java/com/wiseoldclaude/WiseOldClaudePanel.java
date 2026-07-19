@@ -15,6 +15,7 @@ import java.net.URLDecoder;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
@@ -88,7 +89,7 @@ public class WiseOldClaudePanel extends PluginPanel implements SidecarListener
     private IntFunction<Image> itemImage = id -> null;
     private final java.util.Hashtable<URL, Image> imageCache = new java.util.Hashtable<>();
     private final Set<Integer> registered = new HashSet<>();
-    private int maxNameWords = 1;
+    private volatile int maxNameWords = 1;
 
     public WiseOldClaudePanel()
     {
@@ -213,19 +214,34 @@ public class WiseOldClaudePanel extends PluginPanel implements SidecarListener
 
     public void setSubmitHandler(Consumer<String> onSubmit) { this.onSubmit = onSubmit; }
 
-    // Called by the plugin once the item catalog is built (off the game thread).
-    public void setItemCatalog(Map<String, Integer> index, IntFunction<Image> imageForId)
+    public void setItemImageProvider(IntFunction<Image> imageForId)
     {
-        int max = 1;
-        for (String key : index.keySet())
-        {
-            int words = 1;
-            for (int i = 0; i < key.length(); i++) if (key.charAt(i) == ' ') words++;
-            if (words > max) max = words;
-        }
-        this.maxNameWords = Math.min(max, 6);
-        this.itemIndex = index;
         this.itemImage = imageForId;
+    }
+
+    // Learn item name->id pairs lazily from tool responses (items the player actually
+    // interacts with) instead of force-loading the entire ~30k item catalog at startup.
+    // Only multi-word names are stored, since the matcher only ever matches those.
+    public synchronized void addItems(Map<String, Integer> items)
+    {
+        Map<String, Integer> merged = new HashMap<>(itemIndex);
+        int max = maxNameWords;
+        boolean changed = false;
+        for (Map.Entry<String, Integer> e : items.entrySet())
+        {
+            String key = e.getKey();
+            if (key.indexOf(' ') < 0) continue;
+            if (merged.putIfAbsent(key, e.getValue()) == null)
+            {
+                changed = true;
+                int words = 1;
+                for (int i = 0; i < key.length(); i++) if (key.charAt(i) == ' ') words++;
+                if (words > max) max = words;
+            }
+        }
+        if (!changed) return;
+        maxNameWords = Math.min(max, 6);
+        itemIndex = merged;
         SwingUtilities.invokeLater(this::rebuild);
     }
 

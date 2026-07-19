@@ -67,9 +67,9 @@ public class WiseOldClaudePlugin extends Plugin implements SidecarListener
         navButton = NavigationButton.builder().tooltip("Wise Old Claude").icon(icon).panel(panel).build();
         clientToolbar.addNavigation(navButton);
 
-        // Build the item name -> id catalog on the game thread (getItemDefinition needs it),
-        // then hand it to the panel so it can render real in-game sprites inline in chat.
-        clientThread.invoke(this::buildItemCatalog);
+        // Give the panel a sprite provider; item names are learned lazily from tool
+        // responses (see onToolRequest) rather than force-loading the whole item cache.
+        panel.setItemImageProvider(id -> itemManager.getImage(id));
 
         if (config.manageSidecar())
         {
@@ -97,32 +97,33 @@ public class WiseOldClaudePlugin extends Plugin implements SidecarListener
         eventBus.register(eventWatcher);
     }
 
-    // Runs on the game thread. Maps lowercased item names to their canonical (lowest) id,
-    // skipping empty/"null" names; putIfAbsent keeps the base item over noted/placeholder
-    // variants (which have higher ids). One-time cost at startup.
-    private void buildItemCatalog()
+    // Pull item name->id pairs out of a tool response so the panel can icon them later.
+    // Only objects with a name + an item id (and not an NPC/player, which carry combatLevel)
+    // are treated as items.
+    private static void collectItems(com.google.gson.JsonElement el, Map<String, Integer> out)
     {
-        try
+        if (el == null) return;
+        if (el.isJsonArray())
         {
-            int count = runeliteClient.getItemCount();
-            Map<String, Integer> index = new HashMap<>(count * 2);
-            for (int id = 0; id < count; id++)
-            {
-                net.runelite.api.ItemComposition comp;
-                try { comp = runeliteClient.getItemDefinition(id); }
-                catch (RuntimeException e) { continue; }
-                if (comp == null) continue;
-                String name = comp.getName();
-                if (name == null) continue;
-                name = name.trim();
-                if (name.isEmpty() || name.equalsIgnoreCase("null")) continue;
-                index.putIfAbsent(name.toLowerCase(Locale.ROOT), id);
-            }
-            panel.setItemCatalog(index, id -> itemManager.getImage(id));
+            for (com.google.gson.JsonElement c : el.getAsJsonArray()) collectItems(c, out);
         }
-        catch (RuntimeException e)
+        else if (el.isJsonObject())
         {
-            log.debug("item catalog build failed", e);
+            JsonObject o = el.getAsJsonObject();
+            com.google.gson.JsonElement nameEl = o.get("name");
+            com.google.gson.JsonElement idEl = o.has("id") ? o.get("id") : o.get("itemId");
+            if (!o.has("combatLevel") && nameEl != null && nameEl.isJsonPrimitive()
+                && idEl != null && idEl.isJsonPrimitive())
+            {
+                try
+                {
+                    String name = nameEl.getAsString();
+                    if (name != null && !name.trim().isEmpty())
+                        out.put(name.trim().toLowerCase(Locale.ROOT), idEl.getAsInt());
+                }
+                catch (RuntimeException ignored) {}
+            }
+            for (Map.Entry<String, com.google.gson.JsonElement> e : o.entrySet()) collectItems(e.getValue(), out);
         }
     }
 
@@ -151,6 +152,9 @@ public class WiseOldClaudePlugin extends Plugin implements SidecarListener
             try
             {
                 JsonObject data = toolRouter.handle(tool, args);
+                Map<String, Integer> items = new HashMap<>();
+                collectItems(data, items);
+                if (!items.isEmpty()) panel.addItems(items);
                 client.sendToolResponse(requestId, data);
             }
             catch (RuntimeException e)
