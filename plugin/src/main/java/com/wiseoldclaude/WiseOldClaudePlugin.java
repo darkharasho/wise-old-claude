@@ -75,9 +75,11 @@ public class WiseOldClaudePlugin extends Plugin implements SidecarListener
         navButton = NavigationButton.builder().tooltip("Wise Old Claude").icon(icon).panel(panel).build();
         clientToolbar.addNavigation(navButton);
 
-        // Give the panel a sprite provider; item names are learned lazily from tool
-        // responses (see onToolRequest) rather than force-loading the whole item cache.
+        // Give the panel a sprite provider; item names come from a bundled name->id list
+        // (loaded off-thread — no game-cache scan, so no heap spike) plus lazy additions
+        // from tool responses (see onToolRequest) for anything the list doesn't cover.
         panel.setItemImageProvider(id -> itemManager.getImage(id));
+        new Thread(this::loadBundledItems, "woc-item-catalog").start();
 
         if (config.manageSidecar())
         {
@@ -111,6 +113,31 @@ public class WiseOldClaudePlugin extends Plugin implements SidecarListener
         eventSubs.add(eventBus.register(net.runelite.api.events.ActorDeath.class, eventWatcher::onActorDeath, 0f));
         eventSubs.add(eventBus.register(net.runelite.client.plugins.loottracker.LootReceived.class, eventWatcher::onLootReceived, 0f));
         eventSubs.add(eventBus.register(net.runelite.api.events.GameStateChanged.class, eventWatcher::onGameStateChanged, 0f));
+    }
+
+    // Load the bundled item name->id catalog (tradeable items + common untradeables) so
+    // any item name can be iconed, not just ones seen via tools. Pure resource parse — no
+    // getItemDefinition, so no ItemComposition heap spike.
+    private void loadBundledItems()
+    {
+        try (java.io.InputStream is = WiseOldClaudePlugin.class.getResourceAsStream("/com/wiseoldclaude/items.json"))
+        {
+            if (is == null) return;
+            JsonObject obj = new com.google.gson.Gson().fromJson(
+                new java.io.InputStreamReader(is, java.nio.charset.StandardCharsets.UTF_8), JsonObject.class);
+            if (obj == null) return;
+            Map<String, Integer> map = new HashMap<>(obj.size() * 2);
+            for (Map.Entry<String, com.google.gson.JsonElement> e : obj.entrySet())
+            {
+                try { map.put(e.getKey(), e.getValue().getAsInt()); }
+                catch (RuntimeException ignored) {}
+            }
+            panel.addItems(map);
+        }
+        catch (Exception e)
+        {
+            log.debug("bundled item catalog load failed", e);
+        }
     }
 
     // Pull item name->id pairs out of a tool response so the panel can icon them later.
