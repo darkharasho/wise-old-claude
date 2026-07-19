@@ -491,7 +491,8 @@ public class WiseOldClaudePanel extends PluginPanel implements SidecarListener
     // so it never crosses the socket thread -> EDT boundary unsynchronized.
     @Override public void onDelta(String id, String text)
     {
-        SwingUtilities.invokeLater(() -> { ensureAssistant(id).md.append(text); rebuild(); });
+        // The real answer has started — now stop the "thinking" indicator.
+        SwingUtilities.invokeLater(() -> { stopThinking(); ensureAssistant(id).md.append(text); rebuild(); });
     }
 
     @Override public void onThinking(String id, String text)
@@ -505,11 +506,12 @@ public class WiseOldClaudePanel extends PluginPanel implements SidecarListener
     }
 
     // Return the assistant message for this stream id, creating it on the first delta/thinking.
+    // Does NOT stop the thinking indicator — that keeps animating through the reasoning phase
+    // and is stopped only when the actual answer (onDelta) begins.
     private Msg ensureAssistant(String id)
     {
         if (!id.equals(streamingId))
         {
-            stopThinking();
             Msg m = new Msg("Wise Old Claude", "role-claude");
             m.id = id;
             messages.add(m);
