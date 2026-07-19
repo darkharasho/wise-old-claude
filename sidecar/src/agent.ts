@@ -9,6 +9,8 @@ export const SYSTEM_PROMPT = [
   "requirements, or strategy from the Old School RuneScape Wiki rather than",
   "relying on memory. When it helps, cite the wiki page URL it returns.",
   "Keep answers short and skimmable — this is a narrow panel, not an essay.",
+  "Do NOT use emoji or emoticons. The panel renders real in-game item icons",
+  "automatically next to item names, so never add decorative symbols yourself.",
 ].join(" ");
 
 export const PROACTIVE_SYSTEM_PROMPT = [

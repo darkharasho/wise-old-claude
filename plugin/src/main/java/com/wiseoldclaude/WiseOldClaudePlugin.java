@@ -3,6 +3,9 @@ package com.wiseoldclaude;
 import com.google.gson.JsonObject;
 import com.google.inject.Provides;
 import java.awt.image.BufferedImage;
+import java.util.HashMap;
+import java.util.Locale;
+import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -63,6 +66,10 @@ public class WiseOldClaudePlugin extends Plugin implements SidecarListener
         navButton = NavigationButton.builder().tooltip("Wise Old Claude").icon(icon).panel(panel).build();
         clientToolbar.addNavigation(navButton);
 
+        // Build the item name -> id catalog on the game thread (getItemDefinition needs it),
+        // then hand it to the panel so it can render real in-game sprites inline in chat.
+        clientThread.invoke(this::buildItemCatalog);
+
         if (config.manageSidecar())
         {
             sidecarProcess = new SidecarProcess(
@@ -87,6 +94,35 @@ public class WiseOldClaudePlugin extends Plugin implements SidecarListener
         eventWatcher = new EventWatcher(runeliteClient, itemManager, config, throttle,
             payload -> dispatcher.dispatch(payload));
         eventBus.register(eventWatcher);
+    }
+
+    // Runs on the game thread. Maps lowercased item names to their canonical (lowest) id,
+    // skipping empty/"null" names; putIfAbsent keeps the base item over noted/placeholder
+    // variants (which have higher ids). One-time cost at startup.
+    private void buildItemCatalog()
+    {
+        try
+        {
+            int count = runeliteClient.getItemCount();
+            Map<String, Integer> index = new HashMap<>(count * 2);
+            for (int id = 0; id < count; id++)
+            {
+                net.runelite.api.ItemComposition comp;
+                try { comp = runeliteClient.getItemDefinition(id); }
+                catch (RuntimeException e) { continue; }
+                if (comp == null) continue;
+                String name = comp.getName();
+                if (name == null) continue;
+                name = name.trim();
+                if (name.isEmpty() || name.equalsIgnoreCase("null")) continue;
+                index.putIfAbsent(name.toLowerCase(Locale.ROOT), id);
+            }
+            panel.setItemCatalog(index, id -> itemManager.getImage(id));
+        }
+        catch (RuntimeException e)
+        {
+            log.debug("item catalog build failed", e);
+        }
     }
 
     @Override

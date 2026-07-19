@@ -3,18 +3,32 @@ package com.wiseoldclaude;
 import com.google.gson.JsonObject;
 import java.awt.BorderLayout;
 import java.awt.Dimension;
+import java.awt.Image;
 import java.awt.event.ActionEvent;
 import java.awt.event.InputEvent;
 import java.awt.event.KeyEvent;
+import java.io.StringReader;
+import java.net.MalformedURLException;
+import java.net.URL;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Locale;
+import java.util.Map;
+import java.util.Set;
 import java.util.function.Consumer;
+import java.util.function.IntFunction;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import javax.swing.*;
+import javax.swing.text.html.HTMLDocument;
 import javax.swing.text.html.HTMLEditorKit;
 import javax.swing.text.html.StyleSheet;
 import net.runelite.client.ui.ColorScheme;
 import net.runelite.client.ui.PluginPanel;
+import net.runelite.client.util.AsyncBufferedImage;
 import org.commonmark.Extension;
 import org.commonmark.ext.gfm.tables.TablesExtension;
 import org.commonmark.parser.Parser;
@@ -27,6 +41,9 @@ public class WiseOldClaudePanel extends PluginPanel implements SidecarListener
     private static final Parser MD = Parser.builder().extensions(MD_EXT).build();
     private static final HtmlRenderer HTML = HtmlRenderer.builder().extensions(MD_EXT).build();
 
+    // Word tokens for item-name matching (letters/digits/apostrophes).
+    private static final Pattern WORD = Pattern.compile("[\\p{L}\\p{N}']+");
+
     // One chat turn. Its markdown accumulates across streamed deltas; the whole
     // transcript is re-rendered to HTML on each change (small side-panel log, cheap).
     private static final class Msg
@@ -38,11 +55,21 @@ public class WiseOldClaudePanel extends PluginPanel implements SidecarListener
     }
 
     private final JEditorPane transcript = new JEditorPane();
+    private final HTMLEditorKit kit = new HTMLEditorKit();
     private final JTextArea input = new JTextArea(4, 10);
     private final JLabel status = new JLabel("Disconnected");
     private final List<Msg> messages = new ArrayList<>();
     private Consumer<String> onSubmit = t -> {};
     private String streamingId = null;
+
+    // Item icons: a name -> itemId catalog (built by the plugin off the game thread),
+    // a sprite supplier, and a shared image cache the HTMLDocument reads from so the
+    // <img> tags resolve to real in-game sprites with no network fetch.
+    private volatile Map<String, Integer> itemIndex = Collections.emptyMap();
+    private IntFunction<Image> itemImage = id -> null;
+    private final java.util.Hashtable<URL, Image> imageCache = new java.util.Hashtable<>();
+    private final Set<Integer> registered = new HashSet<>();
+    private int maxNameWords = 1;
 
     public WiseOldClaudePanel()
     {
@@ -51,6 +78,8 @@ public class WiseOldClaudePanel extends PluginPanel implements SidecarListener
         // aligned scroll pane, which lets the input float instead of pinning).
         super(false);
         setLayout(new BorderLayout(0, 6));
+        // Left/right (and light top/bottom) padding so nothing sits flush to the panel edges.
+        setBorder(BorderFactory.createEmptyBorder(6, 8, 6, 8));
 
         status.setBorder(BorderFactory.createEmptyBorder(2, 2, 4, 2));
         status.setForeground(ColorScheme.PROGRESS_ERROR_COLOR);
@@ -58,19 +87,20 @@ public class WiseOldClaudePanel extends PluginPanel implements SidecarListener
         // Rich transcript: a read-only HTML pane styled to match the RuneLite dark theme.
         transcript.setEditable(false);
         transcript.setContentType("text/html");
-        HTMLEditorKit kit = new HTMLEditorKit();
         transcript.setEditorKit(kit);
         StyleSheet ss = kit.getStyleSheet();
-        ss.addRule("body { font-family: sans-serif; font-size: 11px; color: #dcdcdc; margin: 4px; }");
-        ss.addRule("p { margin: 3px 0; }");
+        ss.addRule("body { font-family: sans-serif; font-size: 11px; color: #dcdcdc; margin: 2px 4px; }");
+        ss.addRule("p { margin: 6px 2px; }");
         ss.addRule(".role-you { color: #6b9bd6; font-weight: bold; }");
         ss.addRule(".role-claude { color: #e0a032; font-weight: bold; }");
         ss.addRule(".role-error { color: #d64b4b; font-weight: bold; }");
+        ss.addRule(".msg { margin: 4px 2px 10px 2px; }");
         ss.addRule("table { border: 1px solid #4a4a4a; }");
-        ss.addRule("th { border: 1px solid #4a4a4a; padding: 2px 6px; background: #2c2c2c; }");
-        ss.addRule("td { border: 1px solid #4a4a4a; padding: 2px 6px; }");
+        ss.addRule("th { border: 1px solid #4a4a4a; padding: 3px 8px; background: #2c2c2c; }");
+        ss.addRule("td { border: 1px solid #4a4a4a; padding: 3px 8px; }");
         ss.addRule("code { background: #333333; color: #e6c07b; }");
-        ss.addRule("ul, ol { margin: 3px 0; }");
+        ss.addRule("ul, ol { margin: 6px 0 6px 4px; }");
+        ss.addRule("li { margin: 3px 0; }");
         transcript.setBackground(ColorScheme.DARK_GRAY_COLOR);
         rebuild();
 
@@ -119,6 +149,22 @@ public class WiseOldClaudePanel extends PluginPanel implements SidecarListener
 
     public void setSubmitHandler(Consumer<String> onSubmit) { this.onSubmit = onSubmit; }
 
+    // Called by the plugin once the item catalog is built (off the game thread).
+    public void setItemCatalog(Map<String, Integer> index, IntFunction<Image> imageForId)
+    {
+        int max = 1;
+        for (String key : index.keySet())
+        {
+            int words = 1;
+            for (int i = 0; i < key.length(); i++) if (key.charAt(i) == ' ') words++;
+            if (words > max) max = words;
+        }
+        this.maxNameWords = Math.min(max, 6);
+        this.itemIndex = index;
+        this.itemImage = imageForId;
+        SwingUtilities.invokeLater(this::rebuild);
+    }
+
     // On the EDT (invoked from the input action).
     private void submit()
     {
@@ -132,20 +178,140 @@ public class WiseOldClaudePanel extends PluginPanel implements SidecarListener
         onSubmit.accept(text);
     }
 
-    // Re-render the whole transcript to HTML. EDT-only.
+    // Re-render the whole transcript. EDT-only. We build the HTMLDocument ourselves and
+    // attach the image cache BEFORE the views are created, so item <img> tags resolve
+    // from the cache instead of triggering a network fetch.
     private void rebuild()
     {
-        StringBuilder html = new StringBuilder("<html><body>");
-        for (Msg m : messages)
+        String body = buildBodyHtml();
+        try
         {
-            html.append("<div><span class='").append(m.cssClass).append("'>")
-                .append(escape(m.role)).append("</span>");
-            html.append(HTML.render(MD.parse(m.md.toString())));
-            html.append("</div><br>");
+            HTMLDocument doc = (HTMLDocument) kit.createDefaultDocument();
+            doc.putProperty("imageCache", imageCache);
+            transcript.setDocument(doc);
+            kit.read(new StringReader(body), doc, 0);
+            transcript.setCaretPosition(doc.getLength());
+        }
+        catch (Exception e)
+        {
+            transcript.setText(body);
+        }
+    }
+
+    private String buildBodyHtml()
+    {
+        StringBuilder html = new StringBuilder("<html><body>");
+        for (int i = 0; i < messages.size(); i++)
+        {
+            Msg m = messages.get(i);
+            boolean streaming = streamingId != null && i == messages.size() - 1;
+            String rendered = HTML.render(MD.parse(m.md.toString()));
+            // Only decorate finished assistant messages, so icons don't flicker mid-stream.
+            if (!streaming && "role-claude".equals(m.cssClass)) rendered = injectItemIcons(rendered);
+            html.append("<div class='msg'><span class='").append(m.cssClass).append("'>")
+                .append(escape(m.role)).append("</span>").append(rendered).append("</div>");
         }
         html.append("</body></html>");
-        transcript.setText(html.toString());
-        transcript.setCaretPosition(transcript.getDocument().getLength());
+        return html.toString();
+    }
+
+    // Insert item sprites inline. Scans only the text between HTML tags so tags/attributes
+    // are never corrupted, then replaces item-name phrases with <img> + the original text.
+    private String injectItemIcons(String html)
+    {
+        if (itemIndex.isEmpty()) return html;
+        StringBuilder out = new StringBuilder(html.length() + 64);
+        int i = 0, n = html.length();
+        while (i < n)
+        {
+            if (html.charAt(i) == '<')
+            {
+                int gt = html.indexOf('>', i);
+                if (gt < 0) { out.append(html, i, n); break; }
+                out.append(html, i, gt + 1);
+                i = gt + 1;
+            }
+            else
+            {
+                int lt = html.indexOf('<', i);
+                if (lt < 0) lt = n;
+                out.append(replaceItemsInText(html.substring(i, lt)));
+                i = lt;
+            }
+        }
+        return out.toString();
+    }
+
+    private String replaceItemsInText(String text)
+    {
+        Matcher m = WORD.matcher(text);
+        List<int[]> spans = new ArrayList<>();
+        List<String> words = new ArrayList<>();
+        while (m.find()) { spans.add(new int[]{ m.start(), m.end() }); words.add(m.group()); }
+        if (words.isEmpty()) return text;
+
+        StringBuilder out = new StringBuilder();
+        int lastEnd = 0;
+        int p = 0;
+        while (p < words.size())
+        {
+            int matchedK = 0, matchedId = -1;
+            int maxK = Math.min(maxNameWords, words.size() - p);
+            for (int k = maxK; k >= 1; k--)
+            {
+                StringBuilder cand = new StringBuilder();
+                for (int j = 0; j < k; j++) { if (j > 0) cand.append(' '); cand.append(words.get(p + j)); }
+                Integer id = itemIndex.get(cand.toString().toLowerCase(Locale.ROOT));
+                if (id != null) { matchedK = k; matchedId = id; break; }
+            }
+            if (matchedK > 0)
+            {
+                int spanStart = spans.get(p)[0];
+                int spanEnd = spans.get(p + matchedK - 1)[1];
+                out.append(text, lastEnd, spanStart);
+                out.append(iconTag(matchedId)).append(text, spanStart, spanEnd);
+                registerImage(matchedId);
+                lastEnd = spanEnd;
+                p += matchedK;
+            }
+            else
+            {
+                p += 1;
+            }
+        }
+        out.append(text, lastEnd, text.length());
+        return out.toString();
+    }
+
+    private static String iconTag(int id)
+    {
+        return "<img src='http://127.0.0.1/woc-item/" + id + "' width='18' height='16'>&nbsp;";
+    }
+
+    private static URL itemUrl(int id)
+    {
+        try { return new URL("http://127.0.0.1/woc-item/" + id); }
+        catch (MalformedURLException e) { throw new IllegalStateException(e); }
+    }
+
+    // Put the sprite in the document image cache (once per id). Sprites load asynchronously;
+    // repaint when each finishes so a blank icon fills in.
+    private void registerImage(int id)
+    {
+        if (!registered.add(id)) return;
+        try
+        {
+            Image img = itemImage.apply(id);
+            if (img == null) return;
+            imageCache.put(itemUrl(id), img);
+            if (img instanceof AsyncBufferedImage)
+            {
+                ((AsyncBufferedImage) img).onLoaded(() -> SwingUtilities.invokeLater(transcript::repaint));
+            }
+        }
+        catch (Exception ignored)
+        {
+        }
     }
 
     private static String escape(String s)
@@ -187,7 +353,7 @@ public class WiseOldClaudePanel extends PluginPanel implements SidecarListener
 
     @Override public void onDone(String id)
     {
-        SwingUtilities.invokeLater(() -> streamingId = null);
+        SwingUtilities.invokeLater(() -> { streamingId = null; rebuild(); });
     }
 
     @Override public void onError(String id, String message)
