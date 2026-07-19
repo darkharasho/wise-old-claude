@@ -10,6 +10,9 @@ export const SYSTEM_PROMPT = [
   "You also have search_osrs_wiki — use it to confirm mechanics, drop tables,",
   "requirements, or strategy from the Old School RuneScape Wiki rather than",
   "relying on memory. When it helps, cite the wiki page URL it returns.",
+  "You can draw on the player's screen: highlight_npc (outline NPCs by name),",
+  "highlight_tile (mark a world tile, optional label), and clear_highlights.",
+  "Use these to point things out visually when it helps; clear when no longer needed.",
   "Keep answers short and skimmable — this is a narrow panel, not an essay.",
   "Do NOT use emoji or emoticons. The panel renders real in-game item icons",
   "automatically next to item names, so never add decorative symbols yourself.",
@@ -39,6 +42,9 @@ export const ALLOWED_TOOLS = [
   "get_diaries",
   "get_varbit",
   "get_varp",
+  "highlight_npc",
+  "highlight_tile",
+  "clear_highlights",
   "search_osrs_wiki",
 ].map((t) => MCP_PREFIX + t);
 

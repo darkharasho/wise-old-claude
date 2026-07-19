@@ -21,9 +21,11 @@ import net.runelite.client.plugins.Plugin;
 import net.runelite.client.plugins.PluginDescriptor;
 import net.runelite.client.ui.ClientToolbar;
 import net.runelite.client.ui.NavigationButton;
+import net.runelite.client.ui.overlay.OverlayManager;
 import net.runelite.client.util.ImageUtil;
 import com.wiseoldclaude.game.EventWatcher;
 import com.wiseoldclaude.game.GameStateProvider;
+import com.wiseoldclaude.game.HighlightOverlay;
 import com.wiseoldclaude.game.ToolRouter;
 import com.wiseoldclaude.protocol.ProtocolCodec;
 
@@ -37,6 +39,7 @@ public class WiseOldClaudePlugin extends Plugin implements SidecarListener
     @Inject private ClientThread clientThread;
     @Inject private EventBus eventBus;
     @Inject private ItemManager itemManager;
+    @Inject private OverlayManager overlayManager;
 
     private WiseOldClaudePanel panel;
     private SidecarClient client;
@@ -47,6 +50,7 @@ public class WiseOldClaudePlugin extends Plugin implements SidecarListener
     private ExecutorService worker;
     private ProactiveDispatcher dispatcher;
     private EventWatcher eventWatcher;
+    private HighlightOverlay highlightOverlay;
     private final java.util.List<net.runelite.client.eventbus.EventBus.Subscriber> eventSubs = new java.util.ArrayList<>();
     private SidecarProcess sidecarProcess;
 
@@ -59,7 +63,10 @@ public class WiseOldClaudePlugin extends Plugin implements SidecarListener
     @Override
     protected void startUp()
     {
-        toolRouter = new ToolRouter(new GameStateProvider(runeliteClient, clientThread::invoke, itemManager));
+        highlightOverlay = new HighlightOverlay(runeliteClient, System::currentTimeMillis);
+        overlayManager.add(highlightOverlay);
+        toolRouter = new ToolRouter(
+            new GameStateProvider(runeliteClient, clientThread::invoke, itemManager), highlightOverlay);
         panel = new WiseOldClaudePanel();
         client = new SidecarClient(new ProtocolCodec(), this);
         panel.setSubmitHandler(text -> client.sendChat(UUID.randomUUID().toString(), text));
@@ -141,6 +148,7 @@ public class WiseOldClaudePlugin extends Plugin implements SidecarListener
     {
         for (net.runelite.client.eventbus.EventBus.Subscriber s : eventSubs) eventBus.unregister(s);
         eventSubs.clear();
+        if (highlightOverlay != null) overlayManager.remove(highlightOverlay);
         if (worker != null) worker.shutdownNow();
         if (scheduler != null) scheduler.shutdownNow();
         if (client != null) client.close();

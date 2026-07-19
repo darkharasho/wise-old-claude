@@ -83,6 +83,24 @@ export function buildTools(bridge: ToolBridge) {
     tool("get_varp", "Read any RuneScape player variable (varp) by numeric id (power-user escape hatch).",
       { id: z.number().int().describe("The varp id to read") },
       async (args: { id: number }) => runTool(bridge, "get_varp", { id: args.id })),
+    tool("highlight_npc",
+      "Draw a highlight outline on nearby NPCs whose name matches, on the player's screen. Auto-clears after ~60s.",
+      { name: z.string().describe("NPC name to highlight, e.g. 'Banker' or 'Zulrah'") },
+      async (args: { name: string }) => runTool(bridge, "highlight_npc", { name: args.name })),
+    tool("highlight_tile",
+      "Mark a world tile on the player's screen with an outline and optional label. Auto-clears after ~60s.",
+      {
+        x: z.number().int().describe("World X coordinate"),
+        y: z.number().int().describe("World Y coordinate"),
+        plane: z.number().int().optional().describe("Plane/floor (default 0)"),
+        label: z.string().optional().describe("Optional text label drawn on the tile"),
+      },
+      async (args: { x: number; y: number; plane?: number; label?: string }) =>
+        runTool(bridge, "highlight_tile", {
+          x: args.x, y: args.y, plane: args.plane ?? 0, label: args.label ?? "",
+        })),
+    tool("clear_highlights", "Remove all on-screen highlights you've drawn.",
+      {}, async () => runTool(bridge, "clear_highlights", {})),
     tool(
       "search_osrs_wiki",
       "Look up an item, monster, quest, or mechanic on the Old School RuneScape Wiki. " +

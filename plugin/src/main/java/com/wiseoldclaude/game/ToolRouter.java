@@ -4,9 +4,18 @@ import com.google.gson.JsonObject;
 
 public class ToolRouter
 {
-    private final GameStateProvider provider;
+    private static final long HIGHLIGHT_TTL_MS = 60_000;
 
-    public ToolRouter(GameStateProvider provider) { this.provider = provider; }
+    private final GameStateProvider provider;
+    private final HighlightOverlay highlight;
+
+    public ToolRouter(GameStateProvider provider) { this(provider, null); }
+
+    public ToolRouter(GameStateProvider provider, HighlightOverlay highlight)
+    {
+        this.provider = provider;
+        this.highlight = highlight;
+    }
 
     public JsonObject handle(String tool, JsonObject args)
     {
@@ -24,6 +33,26 @@ public class ToolRouter
             case "get_diaries": return provider.diaries();
             case "get_varbit": return provider.varbit(argInt(args, "id"));
             case "get_varp": return provider.varp(argInt(args, "id"));
+            case "highlight_npc":
+            {
+                if (highlight == null) return error("highlighting unavailable");
+                String name = argStr(args, "name");
+                if (name == null || name.trim().isEmpty()) return error("name required");
+                highlight.highlightNpc(name.trim(), HIGHLIGHT_TTL_MS);
+                return ok("highlighting NPCs named " + name.trim());
+            }
+            case "highlight_tile":
+            {
+                if (highlight == null) return error("highlighting unavailable");
+                int plane = (args != null && args.has("plane")) ? argInt(args, "plane") : 0;
+                highlight.highlightTile(argInt(args, "x"), argInt(args, "y"), plane, argStr(args, "label"), HIGHLIGHT_TTL_MS);
+                return ok("tile marked");
+            }
+            case "clear_highlights":
+            {
+                if (highlight != null) highlight.clear();
+                return ok("cleared");
+            }
             default:
                 JsonObject err = new JsonObject();
                 err.addProperty("error", "unknown tool: " + tool);
@@ -34,5 +63,25 @@ public class ToolRouter
     private static int argInt(JsonObject args, String key)
     {
         return (args != null && args.has(key) && !args.get(key).isJsonNull()) ? args.get(key).getAsInt() : -1;
+    }
+
+    private static String argStr(JsonObject args, String key)
+    {
+        return (args != null && args.has(key) && !args.get(key).isJsonNull()) ? args.get(key).getAsString() : null;
+    }
+
+    private static JsonObject ok(String message)
+    {
+        JsonObject o = new JsonObject();
+        o.addProperty("ok", true);
+        o.addProperty("message", message);
+        return o;
+    }
+
+    private static JsonObject error(String message)
+    {
+        JsonObject o = new JsonObject();
+        o.addProperty("error", message);
+        return o;
     }
 }
