@@ -1,4 +1,5 @@
 import type { SessionCtx } from "./server.js";
+import { goalsSummary } from "./memory.js";
 
 export const SYSTEM_PROMPT = [
   "You are Wise Old Claude, an Old School RuneScape advisor shown in a side panel.",
@@ -16,6 +17,9 @@ export const SYSTEM_PROMPT = [
   "visually when it helps; clear when no longer needed.",
   "You can also capture_screen to actually SEE the player's screen (open interfaces,",
   "the minimap, chat) when a question needs looking rather than reading state.",
+  "You have persistent memory across sessions: set_goal / complete_goal / get_goals",
+  "for the player's long-term goals, and log_activity / get_journal for what they've",
+  "done. Record goals they mention and log notable achievements so you remember later.",
   "For 'am I ready for X?' style questions (a boss, quest, or raid), combine your",
   "tools — get_skills, get_equipment, get_quests, get_bank — with search_osrs_wiki",
   "for the requirements, then give a clear ready/not-ready verdict with the gaps,",
@@ -55,6 +59,11 @@ export const ALLOWED_TOOLS = [
   "highlight_tile",
   "clear_highlights",
   "capture_screen",
+  "set_goal",
+  "complete_goal",
+  "get_goals",
+  "log_activity",
+  "get_journal",
   "search_osrs_wiki",
 ].map((t) => MCP_PREFIX + t);
 
@@ -102,7 +111,9 @@ async function streamAgent(
 
 // Chat keeps a conversation: resume the prior session id and record the new one.
 export function runChat(deps: Deps, id: string, text: string, ctx: SessionCtx): Promise<void> {
-  return streamAgent(deps, text, SYSTEM_PROMPT, id, ctx, {
+  const goals = goalsSummary();
+  const sys = goals ? `${SYSTEM_PROMPT}\n\n${goals}` : SYSTEM_PROMPT;
+  return streamAgent(deps, text, sys, id, ctx, {
     resume: ctx.resumeSessionId,
     onSessionId: (sid) => ctx.onSessionId?.(sid),
   });

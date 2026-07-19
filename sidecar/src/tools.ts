@@ -1,6 +1,7 @@
 import { tool } from "@anthropic-ai/claude-agent-sdk";
 import { z } from "zod";
 import type { ToolBridge } from "./toolBridge.js";
+import { addGoal, completeGoal, listGoals, addJournal, recentJournal } from "./memory.js";
 
 type TextResult = { content: { type: "text"; text: string }[] };
 
@@ -125,6 +126,26 @@ export function buildTools(bridge: ToolBridge) {
           ],
         };
       }),
+    tool("set_goal", "Remember a long-term goal the player is working toward (persists across sessions).",
+      { goal: z.string().describe("The goal, e.g. 'get a fire cape' or '99 fishing'") },
+      async (args: { goal: string }) => ({
+        content: [{ type: "text" as const, text: JSON.stringify({ goals: addGoal(args.goal) }) }],
+      })),
+    tool("complete_goal", "Mark a remembered goal as done.",
+      { goal: z.string().describe("The goal text (or part of it) to mark complete") },
+      async (args: { goal: string }) => ({
+        content: [{ type: "text" as const, text: JSON.stringify({ goals: completeGoal(args.goal) }) }],
+      })),
+    tool("get_goals", "List the player's remembered goals.",
+      {}, async () => ({ content: [{ type: "text" as const, text: JSON.stringify({ goals: listGoals() }) }] })),
+    tool("log_activity", "Add a note to the player's activity journal (what they did/achieved).",
+      { note: z.string().describe("A short note, e.g. 'killed Vorkath 5 times, got a dragon bones stack'") },
+      async (args: { note: string }) => {
+        addJournal(args.note);
+        return { content: [{ type: "text" as const, text: JSON.stringify({ ok: true }) }] };
+      }),
+    tool("get_journal", "Read the player's recent activity journal entries.",
+      {}, async () => ({ content: [{ type: "text" as const, text: JSON.stringify({ journal: recentJournal() }) }] })),
     tool(
       "search_osrs_wiki",
       "Look up an item, monster, quest, or mechanic on the Old School RuneScape Wiki. " +
