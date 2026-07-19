@@ -18,7 +18,7 @@ RuneLite plugin  ←—WS (localhost:8137)—→  sidecar  ←—HTTPS—→  An
 
 - **Node ≥ 20** (sidecar)
 - **JDK 11+** (plugin builds Java 11 bytecode via Gradle)
-- **`CLAUDE_CODE_OAUTH_TOKEN`** — obtain with `claude setup-token`
+- **Claude credentials** — either be logged in via the `claude` CLI (the sidecar uses your local `~/.claude` login automatically) **or** set `CLAUDE_CODE_OAUTH_TOKEN` (obtain with `claude setup-token`)
 - RuneLite developer setup (see [RuneLite wiki](https://github.com/runelite/runelite/wiki/Building-with-IntelliJ-IDEA))
 
 ## Running (manual, v1)
@@ -28,6 +28,16 @@ RuneLite plugin  ←—WS (localhost:8137)—→  sidecar  ←—HTTPS—→  An
 ```sh
 cd sidecar
 npm install
+npm run dev            # zero-config: uses your `claude` login, no handshake token
+```
+
+That works out of the box if you're logged into the `claude` CLI. To require a
+shared handshake secret (recommended if other local processes aren't trusted),
+set a token on both sides — the sidecar and the plugin's **Token** config field:
+
+```sh
+WOC_TOKEN=<shared-secret> npm run dev
+# or supply an explicit credential instead of the local login:
 WOC_TOKEN=<shared-secret> CLAUDE_CODE_OAUTH_TOKEN=$(claude setup-token) npm run dev
 ```
 
@@ -35,7 +45,8 @@ Environment variables:
 
 | Variable | Default | Description |
 |---|---|---|
-| `WOC_TOKEN` | — (required) | Handshake token shared with the plugin |
+| `WOC_TOKEN` | — (optional) | Handshake token shared with the plugin. If unset, the sidecar (bound to `127.0.0.1` only) accepts any local client — matching the plugin's empty-by-default token. |
+| `CLAUDE_CODE_OAUTH_TOKEN` | — (optional) | Explicit Claude credential. If unset, the Agent SDK falls back to your local `claude` login. |
 | `WOC_PORT` | `8137` | WebSocket listen port |
 | `WOC_MODEL` | `claude-sonnet-4-6` | Claude model ID |
 
