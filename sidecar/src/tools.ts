@@ -108,6 +108,23 @@ export function buildTools(bridge: ToolBridge) {
         })),
     tool("clear_highlights", "Remove all on-screen highlights you've drawn.",
       {}, async () => runTool(bridge, "clear_highlights", {})),
+    tool("capture_screen",
+      "Take a screenshot of the player's game screen and look at it. Use when a question needs actually seeing the screen — an open interface, the minimap, chat, or what's happening right now.",
+      {},
+      async () => {
+        const data = (await bridge.request("capture_screen", {})) as {
+          image?: string; mimeType?: string; width?: number; height?: number; error?: string;
+        };
+        if (!data || typeof data.image !== "string") {
+          return { content: [{ type: "text" as const, text: JSON.stringify(data ?? { error: "no image" }) }] };
+        }
+        return {
+          content: [
+            { type: "image" as const, data: data.image, mimeType: data.mimeType ?? "image/png" },
+            { type: "text" as const, text: `Screenshot of the game (${data.width}x${data.height}).` },
+          ],
+        };
+      }),
     tool(
       "search_osrs_wiki",
       "Look up an item, monster, quest, or mechanic on the Old School RuneScape Wiki. " +

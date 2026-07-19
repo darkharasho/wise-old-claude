@@ -14,6 +14,8 @@ export const SYSTEM_PROMPT = [
   "highlight_object (banks, trees, rocks, doors, altars…), highlight_tile (mark a",
   "world tile, optional label), and clear_highlights. Use these to point things out",
   "visually when it helps; clear when no longer needed.",
+  "You can also capture_screen to actually SEE the player's screen (open interfaces,",
+  "the minimap, chat) when a question needs looking rather than reading state.",
   "For 'am I ready for X?' style questions (a boss, quest, or raid), combine your",
   "tools — get_skills, get_equipment, get_quests, get_bank — with search_osrs_wiki",
   "for the requirements, then give a clear ready/not-ready verdict with the gaps,",
@@ -52,6 +54,7 @@ export const ALLOWED_TOOLS = [
   "highlight_object",
   "highlight_tile",
   "clear_highlights",
+  "capture_screen",
   "search_osrs_wiki",
 ].map((t) => MCP_PREFIX + t);
 

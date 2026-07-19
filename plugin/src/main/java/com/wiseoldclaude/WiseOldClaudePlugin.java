@@ -20,12 +20,14 @@ import net.runelite.client.game.ItemManager;
 import net.runelite.client.plugins.Plugin;
 import net.runelite.client.plugins.PluginDescriptor;
 import net.runelite.client.ui.ClientToolbar;
+import net.runelite.client.ui.DrawManager;
 import net.runelite.client.ui.NavigationButton;
 import net.runelite.client.ui.overlay.OverlayManager;
 import net.runelite.client.util.ImageUtil;
 import com.wiseoldclaude.game.EventWatcher;
 import com.wiseoldclaude.game.GameStateProvider;
 import com.wiseoldclaude.game.HighlightOverlay;
+import com.wiseoldclaude.game.ScreenCapture;
 import com.wiseoldclaude.game.ToolRouter;
 import com.wiseoldclaude.protocol.ProtocolCodec;
 
@@ -40,6 +42,7 @@ public class WiseOldClaudePlugin extends Plugin implements SidecarListener
     @Inject private EventBus eventBus;
     @Inject private ItemManager itemManager;
     @Inject private OverlayManager overlayManager;
+    @Inject private DrawManager drawManager;
 
     private WiseOldClaudePanel panel;
     private SidecarClient client;
@@ -51,6 +54,7 @@ public class WiseOldClaudePlugin extends Plugin implements SidecarListener
     private ProactiveDispatcher dispatcher;
     private EventWatcher eventWatcher;
     private HighlightOverlay highlightOverlay;
+    private ScreenCapture screenCapture;
     private final java.util.List<net.runelite.client.eventbus.EventBus.Subscriber> eventSubs = new java.util.ArrayList<>();
     private SidecarProcess sidecarProcess;
 
@@ -67,6 +71,7 @@ public class WiseOldClaudePlugin extends Plugin implements SidecarListener
         overlayManager.add(highlightOverlay);
         toolRouter = new ToolRouter(
             new GameStateProvider(runeliteClient, clientThread::invoke, itemManager), highlightOverlay);
+        screenCapture = new ScreenCapture(drawManager::requestNextFrameListener, 1280);
         panel = new WiseOldClaudePanel();
         client = new SidecarClient(new ProtocolCodec(), this);
         panel.setSubmitHandler(text -> client.sendChat(UUID.randomUUID().toString(), text));
@@ -198,7 +203,9 @@ public class WiseOldClaudePlugin extends Plugin implements SidecarListener
         dispatcher.submit(() -> {
             try
             {
-                JsonObject data = toolRouter.handle(tool, args);
+                JsonObject data = "capture_screen".equals(tool)
+                    ? screenCapture.capture()
+                    : toolRouter.handle(tool, args);
                 Map<String, Integer> items = new HashMap<>();
                 collectItems(data, items);
                 if (!items.isEmpty()) panel.addItems(items);
