@@ -1,5 +1,7 @@
 import type { SessionCtx } from "./server.js";
 import { goalsSummary } from "./memory.js";
+import { sendAlert } from "./alerts.js";
+import { speak } from "./tts.js";
 
 export const SYSTEM_PROMPT = [
   "You are Wise Old Claude, an Old School RuneScape advisor shown in a side panel.",
@@ -73,7 +75,11 @@ type Deps = {
   model: string;
 };
 
-type StreamOpts = { resume?: string; onSessionId?: (sessionId: string) => void };
+type StreamOpts = {
+  resume?: string;
+  onSessionId?: (sessionId: string) => void;
+  onComplete?: (fullText: string) => void;
+};
 
 async function streamAgent(
   deps: Deps, prompt: string, systemPrompt: string, id: string, ctx: SessionCtx, opts: StreamOpts = {},
@@ -93,17 +99,19 @@ async function streamAgent(
       },
     });
     let sessionId: string | undefined;
+    let answer = "";
     for await (const msg of stream as AsyncIterable<any>) {
       if (typeof msg?.session_id === "string") sessionId = msg.session_id;
       if (msg?.type === "assistant") {
         for (const block of msg.message?.content ?? []) {
           if (block?.type === "thinking" && block.thinking) ctx.sendThinking(id, block.thinking);
-          else if (block?.type === "text" && block.text) ctx.sendDelta(id, block.text);
+          else if (block?.type === "text" && block.text) { answer += block.text; ctx.sendDelta(id, block.text); }
         }
       }
     }
     if (sessionId) opts.onSessionId?.(sessionId);
     ctx.sendDone(id);
+    if (answer.trim()) opts.onComplete?.(answer);
   } catch (e) {
     ctx.sendError(id, e instanceof Error ? e.message : String(e));
   }
@@ -116,6 +124,7 @@ export function runChat(deps: Deps, id: string, text: string, ctx: SessionCtx): 
   return streamAgent(deps, text, sys, id, ctx, {
     resume: ctx.resumeSessionId,
     onSessionId: (sid) => ctx.onSessionId?.(sid),
+    onComplete: (t) => speak(t),
   });
 }
 
@@ -143,5 +152,7 @@ export function proactivePrompt(kind: string, detail: Record<string, unknown>): 
 export function runProactive(
   deps: Deps, id: string, kind: string, detail: Record<string, unknown>, ctx: SessionCtx,
 ): Promise<void> {
-  return streamAgent(deps, proactivePrompt(kind, detail), PROACTIVE_SYSTEM_PROMPT, id, ctx);
+  return streamAgent(deps, proactivePrompt(kind, detail), PROACTIVE_SYSTEM_PROMPT, id, ctx, {
+    onComplete: (t) => { speak(t); void sendAlert(t); },
+  });
 }

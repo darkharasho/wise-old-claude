@@ -49,6 +49,10 @@ Environment variables:
 | `CLAUDE_CODE_OAUTH_TOKEN` | — (optional) | Explicit Claude credential. If unset, the Agent SDK falls back to your local `claude` login. |
 | `WOC_PORT` | `8137` | WebSocket listen port |
 | `WOC_MODEL` | `claude-sonnet-4-6` | Claude model ID |
+| `WOC_DATA_DIR` | `~/.wise-old-claude` | Where persistent goals/journal are stored |
+| `WOC_TTS` / `WOC_TTS_CMD` | off | Speak answers aloud. `WOC_TTS=1` uses `spd-say`; `WOC_TTS_CMD` overrides the command |
+| `WOC_ALERT_WEBHOOK` | off | Discord-style webhook URL — proactive events (level-ups, deaths, GE sold) get POSTed as `{content}` |
+| `WOC_TELEGRAM_BOT_TOKEN` / `WOC_TELEGRAM_CHAT_ID` | off | Push proactive events to Telegram instead of (or as well as) a webhook |
 
 ### 2. Start the plugin
 
