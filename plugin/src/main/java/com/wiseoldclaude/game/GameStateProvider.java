@@ -97,9 +97,43 @@ public class GameStateProvider
             }
             o.add("inventory", items(client.getItemContainer(InventoryID.INVENTORY)));
             o.add("equipment", items(client.getItemContainer(InventoryID.EQUIPMENT)));
+            return o;
+        });
+    }
+
+    // Bank contents (from the last time the bank was opened this session) + total GE value.
+    public JsonObject bank()
+    {
+        return onGameThread(() -> {
+            JsonObject o = new JsonObject();
+            if (client.getGameState() != GameState.LOGGED_IN)
+            {
+                o.addProperty("error", "not logged in");
+                return o;
+            }
             ItemContainer bank = client.getItemContainer(InventoryID.BANK);
-            if (bank == null) o.add("bank", com.google.gson.JsonNull.INSTANCE);
-            else o.add("bank", items(bank));
+            if (bank == null)
+            {
+                o.addProperty("error", "bank not seen yet — open your bank once this session");
+                return o;
+            }
+            JsonArray arr = new JsonArray();
+            long total = 0;
+            int unique = 0;
+            for (Item item : bank.getItems())
+            {
+                if (item.getId() < 0 || item.getQuantity() <= 0) continue;
+                unique++;
+                JsonObject j = new JsonObject();
+                j.addProperty("id", item.getId());
+                j.addProperty("name", client.getItemDefinition(item.getId()).getName());
+                j.addProperty("quantity", item.getQuantity());
+                if (itemManager != null) total += (long) itemManager.getItemPrice(item.getId()) * item.getQuantity();
+                arr.add(j);
+            }
+            o.addProperty("uniqueItems", unique);
+            if (itemManager != null) o.addProperty("totalValue", total);
+            o.add("items", arr);
             return o;
         });
     }

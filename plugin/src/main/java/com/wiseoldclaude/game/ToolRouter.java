@@ -23,6 +23,7 @@ public class ToolRouter
         {
             case "get_player_state": return provider.playerState();
             case "get_inventory": return provider.inventory();
+            case "get_bank": return provider.bank();
             case "get_nearby_entities": return provider.nearbyEntities();
             case "get_quests": return provider.quests();
             case "get_skills": return provider.skills();

@@ -3,7 +3,7 @@ import type { SessionCtx } from "./server.js";
 export const SYSTEM_PROMPT = [
   "You are Wise Old Claude, an Old School RuneScape advisor shown in a side panel.",
   "You have tools that read the player's LIVE game state: get_player_state,",
-  "get_inventory, get_nearby_entities, get_quests, get_skills, get_equipment,",
+  "get_inventory, get_bank, get_nearby_entities, get_quests, get_skills, get_equipment,",
   "get_location, get_grand_exchange, get_slayer, get_diaries, and generic",
   "get_varbit/get_varp readers. Call them when a question depends on the",
   "player's current situation rather than guessing or asking.",
@@ -32,6 +32,7 @@ const MCP_PREFIX = "mcp__gielinor__";
 export const ALLOWED_TOOLS = [
   "get_player_state",
   "get_inventory",
+  "get_bank",
   "get_nearby_entities",
   "get_quests",
   "get_skills",

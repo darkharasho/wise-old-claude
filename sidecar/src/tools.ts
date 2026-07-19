@@ -59,8 +59,11 @@ export function buildTools(bridge: ToolBridge) {
   return [
     tool("get_player_state", "Combat level, skills, HP/prayer/run energy, location.",
       {}, async () => runTool(bridge, "get_player_state", {})),
-    tool("get_inventory", "Inventory items, worn equipment, and bank contents if the bank is open.",
+    tool("get_inventory", "The player's current inventory items and worn equipment.",
       {}, async () => runTool(bridge, "get_inventory", {})),
+    tool("get_bank",
+      "The player's bank contents (as of the last time they opened the bank this session) with each item's quantity and the total GE value.",
+      {}, async () => runTool(bridge, "get_bank", {})),
     tool("get_nearby_entities", "Nearby NPCs, players, ground items, and objects.",
       {}, async () => runTool(bridge, "get_nearby_entities", {})),
     tool("get_quests", "The player's full quest log: which quests are finished, in progress, or not started.",
