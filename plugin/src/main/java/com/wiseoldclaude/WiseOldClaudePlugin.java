@@ -47,6 +47,7 @@ public class WiseOldClaudePlugin extends Plugin implements SidecarListener
     private ExecutorService worker;
     private ProactiveDispatcher dispatcher;
     private EventWatcher eventWatcher;
+    private final java.util.List<net.runelite.client.eventbus.EventBus.Subscriber> eventSubs = new java.util.ArrayList<>();
     private SidecarProcess sidecarProcess;
 
     @Provides
@@ -94,7 +95,15 @@ public class WiseOldClaudePlugin extends Plugin implements SidecarListener
             config.proactiveCooldownSeconds() * 1000L, System::currentTimeMillis);
         eventWatcher = new EventWatcher(runeliteClient, itemManager, config, throttle,
             payload -> dispatcher.dispatch(payload));
-        eventBus.register(eventWatcher);
+        // Register each handler as a Consumer instead of eventBus.register(eventWatcher):
+        // the annotation-scanning path builds handler lambdas via ReflectUtil.privateLookupIn +
+        // LambdaMetafactory, which throws "Invalid caller" for sideloaded-plugin classloaders
+        // (breaks all @Subscribe handlers). The typed overload just stores our own Consumer,
+        // whose lambda is synthesized by our classloader, so it works when sideloaded.
+        eventSubs.add(eventBus.register(net.runelite.api.events.StatChanged.class, eventWatcher::onStatChanged, 0f));
+        eventSubs.add(eventBus.register(net.runelite.api.events.ActorDeath.class, eventWatcher::onActorDeath, 0f));
+        eventSubs.add(eventBus.register(net.runelite.client.plugins.loottracker.LootReceived.class, eventWatcher::onLootReceived, 0f));
+        eventSubs.add(eventBus.register(net.runelite.api.events.GameStateChanged.class, eventWatcher::onGameStateChanged, 0f));
     }
 
     // Pull item name->id pairs out of a tool response so the panel can icon them later.
@@ -130,7 +139,8 @@ public class WiseOldClaudePlugin extends Plugin implements SidecarListener
     @Override
     protected void shutDown()
     {
-        if (eventWatcher != null) eventBus.unregister(eventWatcher);
+        for (net.runelite.client.eventbus.EventBus.Subscriber s : eventSubs) eventBus.unregister(s);
+        eventSubs.clear();
         if (worker != null) worker.shutdownNow();
         if (scheduler != null) scheduler.shutdownNow();
         if (client != null) client.close();
