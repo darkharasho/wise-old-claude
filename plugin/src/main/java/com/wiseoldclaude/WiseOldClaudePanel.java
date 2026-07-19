@@ -230,7 +230,7 @@ public class WiseOldClaudePanel extends PluginPanel implements SidecarListener
         for (Map.Entry<String, Integer> e : items.entrySet())
         {
             String key = e.getKey();
-            if (key.indexOf(' ') < 0) continue;
+            if (key.length() < 3) continue; // skip 1-2 char names to avoid noise
             if (merged.putIfAbsent(key, e.getValue()) == null)
             {
                 changed = true;
@@ -382,9 +382,10 @@ public class WiseOldClaudePanel extends PluginPanel implements SidecarListener
         {
             int matchedK = 0, matchedId = -1;
             int maxK = Math.min(maxNameWords, words.size() - p);
-            // Only icon multi-word item names (k >= 2): single common words like "hammer"
-            // or "list" are also item names and cause noisy false-positive icons.
-            for (int k = maxK; k >= 2; k--)
+            // Longest phrase first, down to a single word. The catalog is player-scoped
+            // (only items seen via tools), so single-word matches are their real items,
+            // not arbitrary catalog collisions.
+            for (int k = maxK; k >= 1; k--)
             {
                 StringBuilder cand = new StringBuilder();
                 for (int j = 0; j < k; j++) { if (j > 0) cand.append(' '); cand.append(words.get(p + j)); }
