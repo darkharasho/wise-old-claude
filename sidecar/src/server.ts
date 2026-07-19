@@ -8,6 +8,10 @@ export type SessionCtx = {
   sendDone(id: string): void;
   sendError(id: string | null, message: string): void;
   bridge: ToolBridge;
+  // Chat conversation continuity: the last chat session id to resume, and a sink
+  // to record the id after each chat turn. Optional so proactive/test paths can skip it.
+  resumeSessionId?: string;
+  onSessionId?(sessionId: string): void;
 };
 
 export type SidecarServerOpts = {
@@ -39,12 +43,15 @@ export class SidecarServer {
     let authed = false;
     const send = (m: SidecarToPlugin) => ws.send(serialize(m));
     const bridge = new ToolBridge((req) => send(req));
+    let chatSessionId: string | undefined;
     const ctx: SessionCtx = {
       sendDelta: (id, text) => send({ type: "assistant_delta", id, text }),
       sendThinking: (id, text) => send({ type: "assistant_thinking", id, text }),
       sendDone: (id) => send({ type: "assistant_done", id }),
       sendError: (id, message) => send({ type: "error", id, message }),
       bridge,
+      get resumeSessionId() { return chatSessionId; },
+      onSessionId: (sessionId) => { chatSessionId = sessionId; },
     };
 
     ws.on("message", (raw) => {

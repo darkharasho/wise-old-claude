@@ -48,8 +48,10 @@ type Deps = {
   model: string;
 };
 
+type StreamOpts = { resume?: string; onSessionId?: (sessionId: string) => void };
+
 async function streamAgent(
-  deps: Deps, prompt: string, systemPrompt: string, id: string, ctx: SessionCtx,
+  deps: Deps, prompt: string, systemPrompt: string, id: string, ctx: SessionCtx, opts: StreamOpts = {},
 ): Promise<void> {
   try {
     const stream = deps.queryFn({
@@ -62,9 +64,12 @@ async function streamAgent(
         thinking: { type: "adaptive" },
         tools: [],
         allowedTools: ALLOWED_TOOLS,
+        ...(opts.resume ? { resume: opts.resume } : {}),
       },
     });
+    let sessionId: string | undefined;
     for await (const msg of stream as AsyncIterable<any>) {
+      if (typeof msg?.session_id === "string") sessionId = msg.session_id;
       if (msg?.type === "assistant") {
         for (const block of msg.message?.content ?? []) {
           if (block?.type === "thinking" && block.thinking) ctx.sendThinking(id, block.thinking);
@@ -72,14 +77,19 @@ async function streamAgent(
         }
       }
     }
+    if (sessionId) opts.onSessionId?.(sessionId);
     ctx.sendDone(id);
   } catch (e) {
     ctx.sendError(id, e instanceof Error ? e.message : String(e));
   }
 }
 
+// Chat keeps a conversation: resume the prior session id and record the new one.
 export function runChat(deps: Deps, id: string, text: string, ctx: SessionCtx): Promise<void> {
-  return streamAgent(deps, text, SYSTEM_PROMPT, id, ctx);
+  return streamAgent(deps, text, SYSTEM_PROMPT, id, ctx, {
+    resume: ctx.resumeSessionId,
+    onSessionId: (sid) => ctx.onSessionId?.(sid),
+  });
 }
 
 export function proactivePrompt(kind: string, detail: Record<string, unknown>): string {

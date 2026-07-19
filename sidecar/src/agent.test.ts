@@ -40,6 +40,24 @@ describe("runChat", () => {
     expect(events).toEqual(["thinking:hmm", "delta:answer", "done"]);
   });
 
+  it("resumes the prior chat session and records the new session id", async () => {
+    let seenOptions: any;
+    async function* q(args: any) {
+      seenOptions = args.options;
+      yield { type: "system", session_id: "sess-123" };
+      yield { type: "assistant", message: { content: [{ type: "text", text: "ok" }] } };
+      yield { type: "result", subtype: "success", session_id: "sess-123" };
+    }
+    let recorded: string | undefined;
+    const ctx: any = {
+      sendDelta: () => {}, sendThinking: () => {}, sendDone: () => {}, sendError: () => {},
+      bridge: {}, resumeSessionId: "prev-999", onSessionId: (s: string) => { recorded = s; },
+    };
+    await runChat({ queryFn: q as any, mcpServer: {} as any, model: "m" }, "1", "hi", ctx);
+    expect(seenOptions.resume).toBe("prev-999");
+    expect(recorded).toBe("sess-123");
+  });
+
   it("emits error when query throws", async () => {
     const { events, ctx } = recordingCtx();
     const throwing = () => { throw new Error("boom"); };
