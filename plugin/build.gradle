@@ -17,6 +17,10 @@ dependencies {
     // RuneLite provides slf4j at runtime; exclude it so the fat jar doesn't bundle a duplicate.
     implementation('org.java-websocket:Java-WebSocket:1.5.7') { exclude group: 'org.slf4j' }
 
+    // Markdown -> HTML for the chat panel (+ GFM tables for the model's |Item|Qty| tables).
+    implementation 'org.commonmark:commonmark:0.22.0'
+    implementation 'org.commonmark:commonmark-ext-gfm-tables:0.22.0'
+
     testImplementation group: 'net.runelite', name: 'client', version: runeLiteVersion
     testImplementation 'junit:junit:4.13.2'
     testImplementation 'org.junit.jupiter:junit-jupiter:5.10.2'
