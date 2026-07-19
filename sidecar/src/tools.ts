@@ -63,6 +63,8 @@ export function buildTools(bridge: ToolBridge) {
       {}, async () => runTool(bridge, "get_inventory", {})),
     tool("get_nearby_entities", "Nearby NPCs, players, ground items, and objects.",
       {}, async () => runTool(bridge, "get_nearby_entities", {})),
+    tool("get_quests", "The player's full quest log: which quests are finished, in progress, or not started.",
+      {}, async () => runTool(bridge, "get_quests", {})),
     tool(
       "search_osrs_wiki",
       "Look up an item, monster, quest, or mechanic on the Old School RuneScape Wiki. " +

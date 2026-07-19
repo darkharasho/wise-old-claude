@@ -110,7 +110,8 @@ public class WiseOldClaudePanel extends PluginPanel implements SidecarListener
         ss.addRule("th { border: 1px solid #4a4a4a; padding: 3px 8px; background: #2c2c2c; }");
         ss.addRule("td { border: 1px solid #4a4a4a; padding: 3px 8px; }");
         ss.addRule("code { background: #333333; color: #e6c07b; }");
-        ss.addRule("ul, ol { margin: 6px 0 6px 4px; }");
+        // Wide left indent so two-digit ordered-list markers (e.g. "10.") aren't clipped.
+        ss.addRule("ul, ol { margin: 6px 4px 6px 26px; }");
         ss.addRule("li { margin: 3px 0; }");
         transcript.setBackground(ColorScheme.DARK_GRAY_COLOR);
         rebuild();

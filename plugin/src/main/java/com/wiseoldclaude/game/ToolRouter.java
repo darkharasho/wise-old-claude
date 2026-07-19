@@ -15,6 +15,7 @@ public class ToolRouter
             case "get_player_state": return provider.playerState();
             case "get_inventory": return provider.inventory();
             case "get_nearby_entities": return provider.nearbyEntities();
+            case "get_quests": return provider.quests();
             default:
                 JsonObject err = new JsonObject();
                 err.addProperty("error", "unknown tool: " + tool);

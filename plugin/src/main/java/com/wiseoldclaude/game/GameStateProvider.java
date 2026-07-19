@@ -142,4 +142,38 @@ public class GameStateProvider
         o.addProperty("base", client.getRealSkillLevel(s));
         return o;
     }
+
+    // Full quest log: every quest bucketed by completion state (reads varbits, so game thread).
+    public JsonObject quests()
+    {
+        return onGameThread(() -> {
+            JsonObject o = new JsonObject();
+            if (client.getGameState() != GameState.LOGGED_IN)
+            {
+                o.addProperty("error", "not logged in");
+                return o;
+            }
+            JsonArray finished = new JsonArray();
+            JsonArray inProgress = new JsonArray();
+            JsonArray notStarted = new JsonArray();
+            for (net.runelite.api.Quest q : net.runelite.api.Quest.values())
+            {
+                net.runelite.api.QuestState state;
+                try { state = q.getState(client); }
+                catch (RuntimeException e) { continue; }
+                switch (state)
+                {
+                    case FINISHED: finished.add(q.getName()); break;
+                    case IN_PROGRESS: inProgress.add(q.getName()); break;
+                    default: notStarted.add(q.getName()); break;
+                }
+            }
+            o.addProperty("finishedCount", finished.size());
+            o.addProperty("inProgressCount", inProgress.size());
+            o.add("inProgress", inProgress);
+            o.add("finished", finished);
+            o.add("notStarted", notStarted);
+            return o;
+        });
+    }
 }
