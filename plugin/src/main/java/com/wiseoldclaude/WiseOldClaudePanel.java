@@ -366,7 +366,9 @@ public class WiseOldClaudePanel extends PluginPanel implements SidecarListener
         {
             int matchedK = 0, matchedId = -1;
             int maxK = Math.min(maxNameWords, words.size() - p);
-            for (int k = maxK; k >= 1; k--)
+            // Only icon multi-word item names (k >= 2): single common words like "hammer"
+            // or "list" are also item names and cause noisy false-positive icons.
+            for (int k = maxK; k >= 2; k--)
             {
                 StringBuilder cand = new StringBuilder();
                 for (int j = 0; j < k; j++) { if (j > 0) cand.append(' '); cand.append(words.get(p + j)); }
