@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 32 32">
+  <!-- Wise Old Claude: a wizard hat with a sparkle. -->
+  <ellipse cx="16" cy="24.5" rx="12.6" ry="3.3" fill="#2b4270"/>
+  <path d="M16 3 L25 24 Q16 27 7 24 Z" fill="#3a5893"/>
+  <path d="M16 3 L20.5 13.5 Q16 15 11.5 13.5 Z" fill="#47679f"/>
+  <path d="M9 21 Q16 23.6 23 21 L24 24.2 Q16 27 8 24.2 Z" fill="#e0a032"/>
+  <path d="M16 7.8 L17.2 11 L20.4 12.2 L17.2 13.4 L16 16.6 L14.8 13.4 L11.6 12.2 L14.8 11 Z" fill="#f4cf6b"/>
+</svg>

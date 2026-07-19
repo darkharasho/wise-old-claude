@@ -21,6 +21,7 @@ import net.runelite.client.plugins.Plugin;
 import net.runelite.client.plugins.PluginDescriptor;
 import net.runelite.client.ui.ClientToolbar;
 import net.runelite.client.ui.NavigationButton;
+import net.runelite.client.util.ImageUtil;
 import com.wiseoldclaude.game.EventWatcher;
 import com.wiseoldclaude.game.GameStateProvider;
 import com.wiseoldclaude.game.ToolRouter;
@@ -62,7 +63,7 @@ public class WiseOldClaudePlugin extends Plugin implements SidecarListener
         client = new SidecarClient(new ProtocolCodec(), this);
         panel.setSubmitHandler(text -> client.sendChat(UUID.randomUUID().toString(), text));
 
-        BufferedImage icon = new BufferedImage(16, 16, BufferedImage.TYPE_INT_ARGB);
+        BufferedImage icon = ImageUtil.loadImageResource(WiseOldClaudePlugin.class, "/com/wiseoldclaude/icon.png");
         navButton = NavigationButton.builder().tooltip("Wise Old Claude").icon(icon).panel(panel).build();
         clientToolbar.addNavigation(navButton);
 

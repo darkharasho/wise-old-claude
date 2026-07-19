@@ -2,6 +2,7 @@ package com.wiseoldclaude;
 
 import com.google.gson.JsonObject;
 import java.awt.BorderLayout;
+import java.awt.Color;
 import java.awt.Dimension;
 import java.awt.Image;
 import java.awt.event.ActionEvent;
@@ -29,6 +30,7 @@ import javax.swing.text.html.StyleSheet;
 import net.runelite.client.ui.ColorScheme;
 import net.runelite.client.ui.PluginPanel;
 import net.runelite.client.util.AsyncBufferedImage;
+import net.runelite.client.util.ImageUtil;
 import org.commonmark.Extension;
 import org.commonmark.ext.gfm.tables.TablesExtension;
 import org.commonmark.parser.Parser;
@@ -54,13 +56,22 @@ public class WiseOldClaudePanel extends PluginPanel implements SidecarListener
         Msg(String role, String cssClass) { this.role = role; this.cssClass = cssClass; }
     }
 
+    private static final String LOGO_URL = "http://127.0.0.1/woc-logo";
+
     private final JEditorPane transcript = new JEditorPane();
     private final HTMLEditorKit kit = new HTMLEditorKit();
     private final JTextArea input = new JTextArea(4, 10);
     private final JLabel status = new JLabel("Disconnected");
+    private final JLabel thinkingLabel = new JLabel();
     private final List<Msg> messages = new ArrayList<>();
     private Consumer<String> onSubmit = t -> {};
     private String streamingId = null;
+
+    // Animated "thinking" indicator shown between sending a message and the first token.
+    private final Image logo = ImageUtil.loadImageResource(WiseOldClaudePanel.class, "/com/wiseoldclaude/logo.png");
+    private final Timer thinkingTimer = new Timer(350, null);
+    private int thinkingDots = 0;
+    private boolean logoRegistered = false;
 
     // Item icons: a name -> itemId catalog (built by the plugin off the game thread),
     // a sprite supplier, and a shared image cache the HTMLDocument reads from so the
@@ -107,9 +118,42 @@ public class WiseOldClaudePanel extends PluginPanel implements SidecarListener
         JScrollPane transcriptScroll = new JScrollPane(transcript);
         transcriptScroll.setBorder(BorderFactory.createEmptyBorder());
 
+        thinkingLabel.setForeground(new Color(0xE0A032));
+        thinkingLabel.setBorder(BorderFactory.createEmptyBorder(2, 2, 4, 2));
+        thinkingLabel.setVisible(false);
+        thinkingTimer.addActionListener(e -> {
+            thinkingDots = (thinkingDots + 1) % 4;
+            StringBuilder dots = new StringBuilder();
+            for (int i = 0; i < thinkingDots; i++) dots.append('.');
+            thinkingLabel.setText("Wise Old Claude is thinking" + dots);
+        });
+
+        JPanel south = new JPanel(new BorderLayout());
+        south.add(thinkingLabel, BorderLayout.NORTH);
+        south.add(buildInput(), BorderLayout.CENTER);
+
         add(status, BorderLayout.NORTH);
         add(transcriptScroll, BorderLayout.CENTER);
-        add(buildInput(), BorderLayout.SOUTH);
+        add(south, BorderLayout.SOUTH);
+    }
+
+    private void startThinking()
+    {
+        thinkingDots = 0;
+        thinkingLabel.setText("Wise Old Claude is thinking");
+        thinkingLabel.setVisible(true);
+        thinkingTimer.start();
+        revalidate();
+    }
+
+    private void stopThinking()
+    {
+        thinkingTimer.stop();
+        if (thinkingLabel.isVisible())
+        {
+            thinkingLabel.setVisible(false);
+            revalidate();
+        }
     }
 
     // Always-visible, multi-line composer pinned to the bottom.
@@ -174,6 +218,7 @@ public class WiseOldClaudePanel extends PluginPanel implements SidecarListener
         m.md.append(text);
         messages.add(m);
         input.setText("");
+        startThinking();
         rebuild();
         onSubmit.accept(text);
     }
@@ -200,6 +245,14 @@ public class WiseOldClaudePanel extends PluginPanel implements SidecarListener
 
     private String buildBodyHtml()
     {
+        if (messages.isEmpty())
+        {
+            registerLogo();
+            return "<html><body><center><br><br><br>"
+                + "<img src='" + LOGO_URL + "' width='72' height='72'><br><br>"
+                + "<span style='color:#8a8a8a;'>Ask Wise Old Claude about your gear,<br>"
+                + "quests, drops, or what to do next.</span></center></body></html>";
+        }
         StringBuilder html = new StringBuilder("<html><body>");
         for (int i = 0; i < messages.size(); i++)
         {
@@ -314,6 +367,13 @@ public class WiseOldClaudePanel extends PluginPanel implements SidecarListener
         }
     }
 
+    private void registerLogo()
+    {
+        if (logoRegistered || logo == null) return;
+        try { imageCache.put(new URL(LOGO_URL), logo); logoRegistered = true; }
+        catch (MalformedURLException ignored) {}
+    }
+
     private static String escape(String s)
     {
         return s.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;");
@@ -343,6 +403,7 @@ public class WiseOldClaudePanel extends PluginPanel implements SidecarListener
         SwingUtilities.invokeLater(() -> {
             if (!id.equals(streamingId))
             {
+                stopThinking();
                 messages.add(new Msg("Wise Old Claude", "role-claude"));
                 streamingId = id;
             }
@@ -353,12 +414,13 @@ public class WiseOldClaudePanel extends PluginPanel implements SidecarListener
 
     @Override public void onDone(String id)
     {
-        SwingUtilities.invokeLater(() -> { streamingId = null; rebuild(); });
+        SwingUtilities.invokeLater(() -> { stopThinking(); streamingId = null; rebuild(); });
     }
 
     @Override public void onError(String id, String message)
     {
         SwingUtilities.invokeLater(() -> {
+            stopThinking();
             Msg m = new Msg("Error", "role-error");
             m.md.append(message);
             messages.add(m);
