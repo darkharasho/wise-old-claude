@@ -60,7 +60,7 @@ class GameStateProviderTest
     }
 
     @Test
-    void inventoryReportsItemsAndNullBankWhenClosed()
+    void inventoryReportsItemsAndNoLongerIncludesBank()
     {
         Client client = mock(Client.class);
         when(client.getGameState()).thenReturn(GameState.LOGGED_IN);
@@ -70,7 +70,6 @@ class GameStateProviderTest
         when(inv.getItems()).thenReturn(new net.runelite.api.Item[]{ new net.runelite.api.Item(995, 100) });
         when(client.getItemContainer(net.runelite.api.InventoryID.INVENTORY)).thenReturn(inv);
         when(client.getItemContainer(net.runelite.api.InventoryID.EQUIPMENT)).thenReturn(null);
-        when(client.getItemContainer(net.runelite.api.InventoryID.BANK)).thenReturn(null);
 
         net.runelite.api.ItemComposition coin = mock(net.runelite.api.ItemComposition.class);
         when(coin.getName()).thenReturn("Coins");
@@ -78,8 +77,41 @@ class GameStateProviderTest
 
         GameStateProvider p = new GameStateProvider(client, inline);
         JsonObject out = p.inventory();
-        assertTrue(out.get("bank").isJsonNull());
+        assertFalse(out.has("bank"));
         assertEquals("Coins", out.getAsJsonArray("inventory").get(0).getAsJsonObject().get("name").getAsString());
         assertEquals(100, out.getAsJsonArray("inventory").get(0).getAsJsonObject().get("quantity").getAsInt());
+    }
+
+    @Test
+    void bankReportsItemsAndUniqueCount()
+    {
+        Client client = mock(Client.class);
+        when(client.getGameState()).thenReturn(GameState.LOGGED_IN);
+
+        net.runelite.api.ItemContainer bank = mock(net.runelite.api.ItemContainer.class);
+        when(bank.getItems()).thenReturn(new net.runelite.api.Item[]{ new net.runelite.api.Item(995, 1_000_000) });
+        when(client.getItemContainer(net.runelite.api.InventoryID.BANK)).thenReturn(bank);
+
+        net.runelite.api.ItemComposition coin = mock(net.runelite.api.ItemComposition.class);
+        when(coin.getName()).thenReturn("Coins");
+        when(client.getItemDefinition(995)).thenReturn(coin);
+
+        GameStateProvider p = new GameStateProvider(client, inline);
+        JsonObject out = p.bank();
+        assertEquals(1, out.get("uniqueItems").getAsInt());
+        assertEquals("Coins", out.getAsJsonArray("items").get(0).getAsJsonObject().get("name").getAsString());
+        assertEquals(1_000_000, out.getAsJsonArray("items").get(0).getAsJsonObject().get("quantity").getAsInt());
+    }
+
+    @Test
+    void bankErrorsWhenNotSeen()
+    {
+        Client client = mock(Client.class);
+        when(client.getGameState()).thenReturn(GameState.LOGGED_IN);
+        when(client.getItemContainer(net.runelite.api.InventoryID.BANK)).thenReturn(null);
+
+        GameStateProvider p = new GameStateProvider(client, inline);
+        JsonObject out = p.bank();
+        assertTrue(out.has("error"));
     }
 }
