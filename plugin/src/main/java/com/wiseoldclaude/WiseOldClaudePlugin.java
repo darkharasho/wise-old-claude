@@ -58,7 +58,7 @@ public class WiseOldClaudePlugin extends Plugin implements SidecarListener
     @Override
     protected void startUp()
     {
-        toolRouter = new ToolRouter(new GameStateProvider(runeliteClient, clientThread::invoke));
+        toolRouter = new ToolRouter(new GameStateProvider(runeliteClient, clientThread::invoke, itemManager));
         panel = new WiseOldClaudePanel();
         client = new SidecarClient(new ProtocolCodec(), this);
         panel.setSubmitHandler(text -> client.sendChat(UUID.randomUUID().toString(), text));
